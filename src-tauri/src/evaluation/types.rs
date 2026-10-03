@@ -32,6 +32,8 @@ pub struct EvaluationPlan {
     pub judge: Option<EvaluationTarget>,
     pub schedule_enabled: bool,
     pub interval_hours: u32,
+    #[serde(default)]
+    pub interval_minutes: Option<u32>,
     #[serde(default = "legacy_request_timeout_seconds")]
     pub request_timeout_seconds: u32,
 }
@@ -44,8 +46,16 @@ impl Default for EvaluationPlan {
             judge: None,
             schedule_enabled: false,
             interval_hours: 24,
+            interval_minutes: Some(30),
             request_timeout_seconds: DEFAULT_REQUEST_TIMEOUT_SECONDS,
         }
+    }
+}
+
+impl EvaluationPlan {
+    pub fn effective_interval_minutes(&self) -> u32 {
+        self.interval_minutes
+            .unwrap_or_else(|| self.interval_hours.saturating_mul(60))
     }
 }
 
@@ -77,6 +87,7 @@ pub enum RunStatus {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum CaseStatus {
+    Generated,
     Passed,
     Failed,
     Error,
@@ -116,11 +127,62 @@ pub struct CaseResult {
     pub prompt: String,
     pub output: String,
     pub safe_svg: Option<String>,
+    #[serde(default)]
+    pub artifact_html: Option<String>,
     pub elapsed_ms: u64,
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
     pub error: Option<String>,
     pub judge: Option<JudgeResult>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvaluationRecord {
+    pub id: String,
+    pub run_id: String,
+    pub created_at: String,
+    pub trigger: RunTrigger,
+    pub case_version: String,
+    pub profile_id: String,
+    pub channel_name: String,
+    pub model_id: String,
+    pub model_alias: String,
+    pub reasoning_effort: Option<String>,
+    pub case_id: CaseId,
+    pub status: CaseStatus,
+    pub score: Option<u32>,
+    pub elapsed_ms: u64,
+    pub has_artifact: bool,
+}
+
+impl EvaluationRecord {
+    pub fn from_result(run: &EvaluationRun, result: &CaseResult) -> Self {
+        Self {
+            id: serde_json::json!([run.id, result.profile_id, result.model_id, result.case_id])
+                .to_string(),
+            run_id: run.id.clone(),
+            created_at: run.started_at.clone(),
+            trigger: run.trigger,
+            case_version: run.case_version.clone(),
+            profile_id: result.profile_id.clone(),
+            channel_name: result.channel_name.clone(),
+            model_id: result.model_id.clone(),
+            model_alias: result.model_alias.clone(),
+            reasoning_effort: result.reasoning_effort.clone(),
+            case_id: result.case_id,
+            status: result.status,
+            score: result.score,
+            elapsed_ms: result.elapsed_ms,
+            has_artifact: result.artifact_html.is_some() || result.safe_svg.is_some(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvaluationActivity {
+    pub records: Vec<EvaluationRecord>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

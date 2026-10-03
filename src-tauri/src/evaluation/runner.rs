@@ -1,6 +1,6 @@
 //! Serial execution: each task and optional text review is sent at most once.
 use super::{
-    cases,
+    artifact, cases,
     client::{self, PreparedTarget},
     types::*,
 };
@@ -55,11 +55,12 @@ pub(super) async fn execute_with_timeout(
                 case_id,
                 status: CaseStatus::Error,
                 score: None,
-                max_score: 100,
+                max_score: if case_id == CaseId::Pelican { 0 } else { 100 },
                 checks: Vec::new(),
                 prompt: prompt.into(),
                 output: String::new(),
                 safe_svg: None,
+                artifact_html: None,
                 elapsed_ms: 0,
                 input_tokens: None,
                 output_tokens: None,
@@ -67,22 +68,34 @@ pub(super) async fn execute_with_timeout(
                 judge: None,
             };
             let started = Instant::now();
-            match client::request(&client, target, prompt, timeout, cancel.clone()).await {
+            let answer = if case_id == CaseId::Pelican {
+                client::request_artifact(&client, target, prompt, timeout, cancel.clone()).await
+            } else {
+                client::request(&client, target, prompt, timeout, cancel.clone()).await
+            };
+            match answer {
                 Ok(answer) => {
-                    let grade = cases::grade(case_id, &answer.text);
-                    result.status = if grade.score == 100 {
-                        CaseStatus::Passed
+                    if let Some(grade) = cases::grade(case_id, &answer.text) {
+                        result.status = if grade.score == 100 {
+                            CaseStatus::Passed
+                        } else {
+                            CaseStatus::Failed
+                        };
+                        result.score = Some(grade.score);
+                        result.checks = grade.checks;
                     } else {
-                        CaseStatus::Failed
-                    };
-                    result.score = Some(grade.score);
-                    result.checks = grade.checks;
-                    result.safe_svg = grade.safe_svg;
+                        result.status = CaseStatus::Generated;
+                        result.artifact_html = artifact::extract_html(&answer.text);
+                    }
                     result.output = answer.text;
                     result.elapsed_ms = answer.elapsed_ms;
                     result.input_tokens = answer.input_tokens;
                     result.output_tokens = answer.output_tokens;
-                    if let Some(judge) = &prepared.judge {
+                    if let Some(judge) = prepared
+                        .judge
+                        .as_ref()
+                        .filter(|_| case_id != CaseId::Pelican)
+                    {
                         let mut review = JudgeResult {
                             score: None,
                             explanation: String::new(),

@@ -6,7 +6,8 @@ use tokio::sync::watch;
 use zeroize::Zeroizing;
 
 pub(super) const MAX_OUTPUT_BYTES: usize = 24 * 1024;
-const MAX_RESPONSE_BYTES: usize = 768 * 1024;
+pub(super) const MAX_ARTIFACT_BYTES: usize = 128 * 1024;
+const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub(super) struct PreparedTarget {
@@ -68,14 +69,54 @@ pub(super) async fn request(
     target: &PreparedTarget,
     prompt: &str,
     timeout: Duration,
+    cancel: watch::Receiver<bool>,
+) -> Result<Answer, RequestError> {
+    request_with_limits(
+        client,
+        target,
+        prompt,
+        timeout,
+        cancel,
+        MAX_OUTPUT_BYTES,
+        8192,
+    )
+    .await
+}
+
+pub(super) async fn request_artifact(
+    client: &reqwest::Client,
+    target: &PreparedTarget,
+    prompt: &str,
+    timeout: Duration,
+    cancel: watch::Receiver<bool>,
+) -> Result<Answer, RequestError> {
+    request_with_limits(
+        client,
+        target,
+        prompt,
+        timeout,
+        cancel,
+        MAX_ARTIFACT_BYTES,
+        32768,
+    )
+    .await
+}
+
+async fn request_with_limits(
+    client: &reqwest::Client,
+    target: &PreparedTarget,
+    prompt: &str,
+    timeout: Duration,
     mut cancel: watch::Receiver<bool>,
+    output_limit: usize,
+    output_tokens: u32,
 ) -> Result<Answer, RequestError> {
     if *cancel.borrow() {
         return Err(RequestError::cancelled());
     }
     let endpoint = crate::diagnostics::normalize_endpoint(&target.endpoint)
         .map_err(|_| RequestError::new("评测渠道地址无效。"))?;
-    let mut body = json!({"model":target.target.model_id,"input":prompt,"stream":false,"store":false,"max_output_tokens":8192});
+    let mut body = json!({"model":target.target.model_id,"input":prompt,"stream":false,"store":false,"max_output_tokens":output_tokens});
     if let Some(effort) = &target.target.reasoning_effort {
         body["reasoning"] = json!({"effort":effort});
     }
@@ -146,6 +187,9 @@ pub(super) async fn request(
         {
             if content.get("type").and_then(Value::as_str) == Some("output_text") {
                 if let Some(text) = content.get("text").and_then(Value::as_str) {
+                    if output.len().saturating_add(text.len()) > output_limit {
+                        return Err(RequestError::new("回答超过评测输出上限，本题未评分。"));
+                    }
                     output.push_str(text);
                     output.push('\n');
                 }
@@ -157,11 +201,11 @@ pub(super) async fn request(
             "模型未返回可评分的文本；本模块不会执行模型生成的工具调用。",
         ));
     }
-    if output.len() > MAX_OUTPUT_BYTES {
+    if output.trim().len() > output_limit {
         return Err(RequestError::new("回答超过评测输出上限，本题未评分。"));
     }
     Ok(Answer {
-        text: redact(output.trim(), &target.key, MAX_OUTPUT_BYTES),
+        text: redact(output.trim(), &target.key, output_limit),
         elapsed_ms: started.elapsed().as_millis() as u64,
         input_tokens: payload
             .pointer("/usage/input_tokens")

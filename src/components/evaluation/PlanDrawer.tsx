@@ -4,8 +4,9 @@ import { desktop } from '../../lib/api';
 import { requestBudget, targetKey, validateEvaluationPlan, type EvaluationCase, type EvaluationPlan, type EvaluationTarget } from '../../lib/evaluation';
 import { effortLabels } from '../../lib/models';
 import type { CatalogEntry, Dashboard } from '../../types';
-import { Drawer } from '../Drawer';
 import { Select } from '../Select';
+import { EvaluationDialog } from './EvaluationDialog';
+import { intervalLabel } from './presentation';
 
 const REQUEST_TIMEOUT_PRESETS = [120, 300, 600, 1800];
 
@@ -29,12 +30,13 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
   const patch = (change: Partial<EvaluationPlan>) => { setPlan((previous) => ({ ...previous, ...change })); setError(null); };
   const targetFor = (key: string): EvaluationTarget | null => { const entry = entriesByKey.get(key); return entry ? { profileId: entry.profileId, modelId: entry.modelId, reasoningEffort: null } : null; };
   const selfJudging = plan.judge && plan.targets.some((target) => targetKey(target) === targetKey(plan.judge!));
+  const intervalMinutes = plan.intervalMinutes ?? plan.intervalHours * 60;
   async function submit(start: boolean) {
     const problem = validateEvaluationPlan(plan) ?? (plan.targets.some((target) => !entriesByKey.has(targetKey(target))) ? '有模型已停用或删除，请移除后重试。' : null);
     if (problem) { setError(problem); return; }
     if (await (start ? onStart(plan) : onSave(plan))) onClose();
   }
-  return <Drawer title="评测计划" subtitle="选择模型、题目和执行方式" onClose={onClose} locked={pending}>
+  return <EvaluationDialog title="评测计划" subtitle="选择模型、题目和执行方式" onClose={onClose} locked={pending} className="evaluation-plan-dialog">
     <form className="editor-form evaluation-plan" noValidate onSubmit={(event) => { event.preventDefault(); void submit(false); }}>
       <div className="editor-scroll">
         <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>被测模型</h3><span>{plan.targets.length} / 6</span></div>
@@ -45,22 +47,22 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
           <div className="evaluation-add-target"><Select ariaLabel="添加被测模型" value={nextTarget} placeholder={available.length ? '选择渠道与模型' : entries.length ? '已选择全部可用模型' : '先在渠道中启用模型'} options={available} searchable disabled={pending || plan.targets.length >= 6 || !available.length} onChange={setNextTarget}/><button type="button" className="button button-soft" aria-label="添加所选模型" disabled={pending || !nextTarget || plan.targets.length >= 6} onClick={() => { const target = targetFor(nextTarget); if (target && !plan.targets.some((item) => targetKey(item) === nextTarget)) patch({ targets: [...plan.targets, target] }); setNextTarget(''); }}><Plus size={17}/></button></div>
           <p className="evaluation-caption">直接调用 API，使用普通推理档位；Ultra 在原生任务中使用。</p>
         </section>
-        <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>测试项目</h3><span>本机核对</span></div><div className="evaluation-case-choices">{cases.map((test) => <label className={plan.cases.includes(test.id) ? 'selected' : ''} key={test.id}><input type="checkbox" checked={plan.cases.includes(test.id)} disabled={pending} onChange={(event) => patch({ cases: event.target.checked ? [...plan.cases, test.id] : plan.cases.filter((id) => id !== test.id) })}/><span><strong>{test.title}</strong><small>{test.description}</small></span></label>)}</div></section>
-        <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>模型复评</h3><span>可选</span></div><Select ariaLabel="评审模型" value={plan.judge ? targetKey(plan.judge) : 'off'} searchable options={[{ value: 'off', label: '不使用模型复评', description: '只保留本机检查与原始答案' }, ...options]} onChange={(value) => patch({ judge: value === 'off' ? null : targetFor(value) })} disabled={pending}/>
+        <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>测试项目</h3></div><div className="evaluation-case-choices">{cases.map((test) => <label className={plan.cases.includes(test.id) ? 'selected' : ''} key={test.id}><input type="checkbox" checked={plan.cases.includes(test.id)} disabled={pending} onChange={(event) => patch({ cases: event.target.checked ? [...plan.cases, test.id] : plan.cases.filter((id) => id !== test.id) })}/><span><strong>{test.title}</strong><small>{test.description}</small></span></label>)}</div></section>
+        {plan.cases.some((id) => id !== 'pelican') && <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>模型复评</h3><span>可选</span></div><Select ariaLabel="评审模型" value={plan.judge ? targetKey(plan.judge) : 'off'} searchable options={[{ value: 'off', label: '不使用模型复评', description: '保留答案核对与原始回答' }, ...options]} onChange={(value) => patch({ judge: value === 'off' ? null : targetFor(value) })} disabled={pending}/>
           {plan.judge && <div className="evaluation-judge-effort"><EffortSelect entry={entriesByKey.get(targetKey(plan.judge))} value={plan.judge.reasoningEffort} label="评审模型推理强度" onChange={(reasoningEffort) => patch({ judge: { ...plan.judge!, reasoningEffort } })}/></div>}
-          <p className="evaluation-caption">{selfJudging ? '当前包含同模型自评，结果会标为模型复评，不代表独立意见。' : '评审模型会收到测试题与答案。主观评分单独展示；鹈鹕为 SVG 代码复评。'}</p>
-        </section>
+          <p className="evaluation-caption">{selfJudging ? '当前包含同模型自评，结果会单独标注。' : '仅复评糖果与判题答案；鹈鹕作品直接展示。'}</p>
+        </section>}
         <section className="evaluation-plan-section"><div className="evaluation-section-label"><label htmlFor="evaluation-request-timeout">单次请求超时</label><span>默认 5 分钟</span></div><Select id="evaluation-request-timeout" ariaLabel="单次请求超时" value={customTimeout ? 'custom' : String(plan.requestTimeoutSeconds)} options={[...REQUEST_TIMEOUT_PRESETS.map((seconds) => ({ value: String(seconds), label: `${seconds / 60} 分钟` })), { value: 'custom', label: '自定义' }]} disabled={pending} onChange={(value) => { setCustomTimeout(value === 'custom'); if (value !== 'custom') patch({ requestTimeoutSeconds: Number(value) }); }}/>
           {customTimeout && <div className="evaluation-timeout-custom"><label htmlFor="evaluation-timeout-seconds">超时秒数</label><input id="evaluation-timeout-seconds" type="number" min={30} max={3600} step={1} required value={Number.isFinite(plan.requestTimeoutSeconds) ? plan.requestTimeoutSeconds : ''} aria-describedby="evaluation-timeout-hint" aria-invalid={error?.startsWith('请求超时') || undefined} disabled={pending} onChange={(event) => patch({ requestTimeoutSeconds: event.target.valueAsNumber })}/></div>}
           <p id="evaluation-timeout-hint" className="evaluation-caption">每道题与模型复评分别计时，支持 30–3600 秒。</p>
         </section>
         <section className="evaluation-plan-section"><label className="evaluation-schedule-toggle" htmlFor="evaluation-schedule"><span><Clock3 size={17}/><strong>定时评测</strong></span><input id="evaluation-schedule" type="checkbox" checked={plan.scheduleEnabled} disabled={pending} onChange={(event) => patch({ scheduleEnabled: event.target.checked })}/></label>
-          {plan.scheduleEnabled && <div className="evaluation-interval"><Select ariaLabel="评测间隔" value={String(plan.intervalHours)} options={[...new Set([1, 3, 6, 12, 24, 72, 168, plan.intervalHours])].sort((a, b) => a - b).map((hours) => ({ value: String(hours), label: hours === 24 ? '每天' : hours === 168 ? '每周' : `每 ${hours} 小时` }))} onChange={(value) => patch({ intervalHours: Number(value) })} disabled={pending}/><p className="evaluation-caption">保存计划后生效。Vela 在后台运行时执行，错过的轮次不会累积补跑。</p></div>}
+          {plan.scheduleEnabled && <div className="evaluation-interval"><Select ariaLabel="评测间隔" value={String(intervalMinutes)} options={[...new Set([30, 60, 180, 360, 1440, intervalMinutes])].sort((a, b) => a - b).map((minutes) => ({ value: String(minutes), label: intervalLabel(minutes) }))} onChange={(value) => patch({ intervalMinutes: Number(value), intervalHours: Math.max(1, Math.ceil(Number(value) / 60)) })} disabled={pending}/><p className="evaluation-caption">保存后生效，Vela 在后台运行时执行。</p></div>}
         </section>
         <p className="evaluation-cost">{desktop ? `每轮最多 ${requestBudget(plan)} 次模型请求，按渠道计费。` : `演示每轮 ${requestBudget(plan)} 次请求，不发送 API 请求或执行真实定时任务。`}</p>
         {(error || requestError) && <p className="inline-error" role="alert">{error || requestError}</p>}
       </div>
       <footer className="evaluation-drawer-footer"><button type="submit" className="button button-quiet" disabled={pending}>保存计划</button><button type="button" className="button button-primary" disabled={pending || running || !entries.length} onClick={() => void submit(true)}>{pending ? '正在处理…' : '开始本次评测'}</button></footer>
     </form>
-  </Drawer>;
+  </EvaluationDialog>;
 }

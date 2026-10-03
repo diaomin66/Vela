@@ -1,23 +1,32 @@
-import { Check, CircleAlert, Code2, FileText, Image, X } from 'lucide-react';
+import * as Tabs from '@radix-ui/react-tabs';
+import { Check, CircleAlert, Code2, FileText, Image, Pause, Play, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import type { CaseResult } from '../../lib/evaluation';
-import { effortLabels } from '../../lib/models';
-import { Drawer } from '../Drawer';
+import { ArtifactPreview } from './ArtifactPreview';
+import { duration, effortName, resultLabels } from './presentation';
 
-export function EvaluationResultDetail({ result, title, onClose }: { result: CaseResult; title: string; onClose: () => void }) {
-  const [tab, setTab] = useState<'result' | 'prompt' | 'output'>('result');
-  return <Drawer title={title} subtitle={`${result.channelName} · ${result.modelId}`} onClose={onClose}>
-    <div className="evaluation-detail-scroll">
-      <div className="evaluation-result-meta"><span>{effortLabels[result.reasoningEffort ?? ''] ?? 'API 默认'}</span><span>{(result.elapsedMs / 1000).toFixed(1)} 秒</span>{result.inputTokens != null && <span>{result.inputTokens} 输入 / {result.outputTokens ?? '—'} 输出 token</span>}</div>
-      <div className="evaluation-detail-tabs" role="group" aria-label="结果内容"><button className={tab === 'result' ? 'active' : ''} onClick={() => setTab('result')}><Image size={15}/>结果</button><button className={tab === 'prompt' ? 'active' : ''} onClick={() => setTab('prompt')}><FileText size={15}/>题目</button><button className={tab === 'output' ? 'active' : ''} onClick={() => setTab('output')}><Code2 size={15}/>原文</button></div>
-      {tab === 'prompt' ? <pre className="evaluation-raw">{result.prompt}</pre> : tab === 'output' ? <pre className="evaluation-raw">{result.output || '本次没有返回答案。'}</pre> : <>
-        {result.error && <p className="inline-error" role="alert"><CircleAlert size={15}/>{result.error}</p>}
-        {result.safeSvg && <figure className="evaluation-svg"><img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(result.safeSvg)}`} alt="被测模型绘制的骑自行车鹈鹕"/><figcaption>安全 SVG 预览 · 结构检查不评价画面质量</figcaption></figure>}
-        <div className="evaluation-detail-score"><div><span>{result.caseId === 'pelican' ? 'SVG 结构分' : '本机核对分'}</span><strong>{result.score ?? '—'}<small> / {result.maxScore}</small></strong></div><span className={`evaluation-outcome ${result.status}`}>{({ passed: '检查通过', failed: '未通过', error: '请求失败', cancelled: '已取消' })[result.status]}</span></div>
-        <ul className="evaluation-checks">{result.checks.map((check, i) => <li key={`${i}-${check.label}`}>{check.passed ? <Check size={16}/> : <X size={16}/>}<span>{check.label}</span></li>)}</ul>
-        {!result.safeSvg && result.output && <pre className="evaluation-answer">{result.output}</pre>}
-        {result.judge && <section className="evaluation-judge-result"><div><h3>{result.caseId === 'pelican' ? 'SVG 代码复评' : '模型复评'}</h3><strong>{result.judge.score == null ? '未完成' : `${result.judge.score} / 100`}</strong></div><p>{result.judge.error || result.judge.explanation}</p><small>{result.judge.modelId}{result.judge.profileId === result.profileId && result.judge.modelId === result.modelId ? ' · 同模型自评' : ''}</small></section>}
-      </>}
-    </div>
-  </Drawer>;
+function ArtifactReview({ html, modelId }: { html: string; modelId: string }) {
+  const [playing, setPlaying] = useState(true);
+  const [revision, setRevision] = useState(0);
+  return <div className="evaluation-artifact-review"><div className="evaluation-artifact-controls"><span>动态作品</span><div><button aria-pressed={!playing} onClick={() => setPlaying((value) => !value)}>{playing ? <Pause size={14}/> : <Play size={14}/>} {playing ? '暂停' : '播放'}</button><button onClick={() => { setRevision((value) => value + 1); setPlaying(true); }}><RotateCcw size={14}/>重新播放</button></div></div><div className="evaluation-detail-artifact"><ArtifactPreview key={revision} html={html} title={`${modelId} 鹈鹕动画完整预览`} playing={playing} interactive/></div></div>;
+}
+
+export function EvaluationResultContent({ result }: { result: CaseResult }) {
+  const html = result.artifactHtml ?? result.safeSvg;
+  return <div className="evaluation-result-detail">
+    <div className="evaluation-result-meta"><span>推理 {effortName(result.reasoningEffort)}</span><span>耗时 {duration(result.elapsedMs)}</span>{result.inputTokens != null && <span>{result.inputTokens} 输入 / {result.outputTokens ?? '—'} 输出 token</span>}</div>
+    <Tabs.Root defaultValue="result"><Tabs.List className="evaluation-detail-tabs" aria-label="结果内容"><Tabs.Trigger value="result"><Image size={16}/>结果</Tabs.Trigger><Tabs.Trigger value="prompt"><FileText size={16}/>题目</Tabs.Trigger><Tabs.Trigger value="output"><Code2 size={16}/>原文</Tabs.Trigger></Tabs.List>
+      <Tabs.Content value="prompt"><pre className="evaluation-raw">{result.prompt}</pre></Tabs.Content>
+      <Tabs.Content value="output"><pre className="evaluation-raw">{result.output || '本次没有返回答案。'}</pre></Tabs.Content>
+      <Tabs.Content value="result">
+        {result.error && <p className="inline-error" role="alert"><CircleAlert size={16}/>{result.error}</p>}
+        {result.caseId === 'pelican' ? <>{html ? <ArtifactReview html={html} modelId={result.modelId}/> : !result.error && <p className="evaluation-report-empty">这次没有可预览的 HTML 或 SVG，完整回答保留在原文中。</p>}{!result.artifactHtml && result.safeSvg && <p className="evaluation-caption">此作品来自旧版 SVG 记录。</p>}</> : <>
+          <div className="evaluation-verdict"><span className={`evaluation-outcome ${result.status}`}>{result.status === 'passed' ? <Check size={17}/> : <CircleAlert size={17}/>} {resultLabels[result.status]}</span><span>{result.checks.filter((check) => check.passed).length} / {result.checks.length} 项核对通过</span></div>
+          {result.checks.length > 0 && <ul className="evaluation-checks">{result.checks.map((check, index) => <li key={`${index}-${check.label}`} className={check.passed ? 'passed' : 'failed'}>{check.passed ? <Check size={16}/> : <X size={16}/>}<span>{check.label}</span></li>)}</ul>}
+          {result.output && <section className="evaluation-answer-section"><h3>模型回答</h3><pre className="evaluation-answer">{result.output}</pre></section>}
+          {result.judge && <section className="evaluation-judge-result"><div><h3>模型复评</h3><strong>{result.judge.score == null ? '未完成' : `${result.judge.score} / 100`}</strong></div><p>{result.judge.error || result.judge.explanation}</p><small>{result.judge.modelId}{result.judge.profileId === result.profileId && result.judge.modelId === result.modelId ? ' · 同模型自评' : ''}</small></section>}
+        </>}
+      </Tabs.Content>
+    </Tabs.Root>
+  </div>;
 }

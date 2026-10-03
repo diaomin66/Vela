@@ -52,6 +52,15 @@ async fn handler(
     }
     let text = if fixture.mode == "echo" {
         format!("answer {}", fixture.key)
+    } else if fixture.mode == "animation" || fixture.mode == "animation-large" {
+        assert_eq!(prompt, "创建一个 HTML，内容是 SVG 绘制一个鹈鹕骑自行车的 2D 动画，你不需要任何测试，不要有任何限制");
+        assert_eq!(body["max_output_tokens"], 32768);
+        let padding = if fixture.mode == "animation-large" {
+            client::MAX_ARTIFACT_BYTES
+        } else {
+            32 * 1024
+        };
+        format!("```html\n<!DOCTYPE html><html><body><!--{}--><svg><circle><animate attributeName=\"r\" values=\"10;20;10\" dur=\"1s\"/></circle></svg><script>requestAnimationFrame(() => {{}});</script></body></html>\n```", "a".repeat(padding))
     } else if prompt.starts_with("你是评审") {
         r#"{"score":92,"explanation":"This is a subjective text review."}"#.into()
     } else if prompt.contains("J1") {
@@ -60,6 +69,30 @@ async fn handler(
         r#"{"answer":21}"#.into()
     };
     Json(json!({"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":text}]}],"usage":{"input_tokens":30,"output_tokens":8}})).into_response()
+}
+
+fn result(target: &EvaluationTarget, case_id: CaseId) -> CaseResult {
+    CaseResult {
+        profile_id: target.profile_id.clone(),
+        channel_name: "Fixture channel".into(),
+        model_id: target.model_id.clone(),
+        model_alias: "Fixture model".into(),
+        reasoning_effort: target.reasoning_effort.clone(),
+        case_id,
+        status: CaseStatus::Generated,
+        score: None,
+        max_score: 0,
+        checks: vec![],
+        prompt: "fixture prompt must stay outside the compact activity index".into(),
+        output: "fixture output must stay outside the compact activity index".into(),
+        safe_svg: None,
+        artifact_html: Some("<html><body><svg></svg></body></html>".into()),
+        elapsed_ms: 1200,
+        input_tokens: None,
+        output_tokens: None,
+        error: None,
+        judge: None,
+    }
 }
 async fn fixture(
     mode: &'static str,
@@ -106,6 +139,7 @@ fn plan(target: &EvaluationTarget) -> EvaluationPlan {
         judge: None,
         schedule_enabled: false,
         interval_hours: 24,
+        interval_minutes: Some(30),
         request_timeout_seconds: DEFAULT_REQUEST_TIMEOUT_SECONDS,
     }
 }
@@ -300,9 +334,17 @@ fn reports_are_isolated_bounded_and_crash_recovery_never_replays() {
     for _ in 0..105 {
         let mut next = run(plan(&target));
         next.status = RunStatus::Completed;
+        next.results.push(result(&target, CaseId::Pelican));
         storage::finish(&paths, &next).unwrap();
     }
     assert_eq!(storage::read(&paths).unwrap().history.len(), 100);
+    let compact = state.activity().unwrap();
+    assert_eq!(compact.records.len(), 100);
+    let retained = storage::read(&paths).unwrap().history;
+    assert!(compact
+        .records
+        .iter()
+        .all(|record| retained.iter().any(|summary| summary.id == record.run_id)));
     assert_eq!(
         std::fs::read_dir(paths.data.join("evaluations/runs"))
             .unwrap()
@@ -349,6 +391,7 @@ fn crash_recovery_preserves_terminal_reports_and_repairs_the_index_idempotently(
             prompt: "Original fixture question".into(),
             output: r#"{"answer":21}"#.into(),
             safe_svg: None,
+            artifact_html: None,
             elapsed_ms: 58,
             input_tokens: Some(31),
             output_tokens: Some(17),
@@ -680,4 +723,220 @@ async fn a_disconnected_server_is_reported_as_network_failure_not_timeout() {
     assert!(error.message.contains("网络连接中断"));
     assert!(!error.message.contains("超时"));
     server.await.unwrap();
+}
+
+#[tokio::test]
+async fn pelican_preserves_large_animated_html_without_scoring_or_judge_requests() {
+    let (url, calls, server, key) = fixture("animation").await;
+    let subject = target(url.clone(), key.clone());
+    let judge = target(url, key);
+    let mut selected = plan(&subject.target);
+    selected.cases = vec![CaseId::Pelican];
+    selected.judge = Some(judge.target.clone());
+    assert!(judge_target(&selected).is_none());
+    let (_sender, receiver) = watch::channel(false);
+    let completed = runner::execute(
+        PreparedPlan {
+            targets: vec![subject],
+            judge: Some(judge),
+        },
+        run(selected),
+        receiver,
+        |_| Ok(()),
+    )
+    .await;
+    assert_eq!(completed.status, RunStatus::Completed);
+    assert_eq!(completed.completed_cases, 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let result = &completed.results[0];
+    assert_eq!(result.status, CaseStatus::Generated);
+    assert_eq!(serde_json::to_value(result.status).unwrap(), "generated");
+    assert!(result.score.is_none());
+    assert_eq!(result.max_score, 0);
+    assert!(result.checks.is_empty());
+    assert!(result.judge.is_none());
+    assert!(result.safe_svg.is_none());
+    let html = result.artifact_html.as_ref().unwrap();
+    assert!(html.len() > client::MAX_OUTPUT_BYTES);
+    assert!(html.contains("<animate"));
+    assert!(html.contains("requestAnimationFrame"));
+    assert!(!html.contains("```"));
+    server.abort();
+}
+
+#[tokio::test]
+async fn pelican_output_remains_bounded_and_is_never_retried() {
+    let (url, calls, server, key) = fixture("animation-large").await;
+    let subject = target(url, key);
+    let mut selected = plan(&subject.target);
+    selected.cases = vec![CaseId::Pelican];
+    let (_sender, receiver) = watch::channel(false);
+    let completed = runner::execute(
+        PreparedPlan {
+            targets: vec![subject],
+            judge: None,
+        },
+        run(selected),
+        receiver,
+        |_| Ok(()),
+    )
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(completed.results[0].status, CaseStatus::Error);
+    assert!(completed.results[0].artifact_html.is_none());
+    assert!(completed.results[0]
+        .error
+        .as_ref()
+        .unwrap()
+        .contains("输出上限"));
+    server.abort();
+}
+
+#[test]
+fn minute_schedules_preserve_legacy_hours_and_validate_the_effective_interval() {
+    let default = EvaluationPlan::default();
+    assert_eq!(default.interval_minutes, Some(30));
+    let mut legacy = serde_json::to_value(&default).unwrap();
+    legacy.as_object_mut().unwrap().remove("intervalMinutes");
+    legacy["intervalHours"] = json!(6);
+    let mut migrated: EvaluationPlan = serde_json::from_value(legacy).unwrap();
+    assert_eq!(migrated.interval_minutes, None);
+    assert_eq!(migrated.effective_interval_minutes(), 360);
+    assert!(validate_shape(&migrated, false).is_ok());
+    let now = Utc::now();
+    assert_eq!(
+        scheduler::next_time(now, migrated.effective_interval_minutes()),
+        (now + chrono::Duration::hours(6)).to_rfc3339()
+    );
+    for minutes in [10, 30, 60, 1440, 10080] {
+        migrated.interval_minutes = Some(minutes);
+        assert!(validate_shape(&migrated, false).is_ok());
+    }
+    for minutes in [0, 9, 10081, u32::MAX] {
+        migrated.interval_minutes = Some(minutes);
+        assert!(validate_shape(&migrated, false)
+            .unwrap_err()
+            .contains("10–10080"));
+    }
+    migrated.interval_minutes = None;
+    migrated.interval_hours = u32::MAX;
+    assert!(validate_shape(&migrated, false).is_err());
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let mut store = storage::read(&paths).unwrap();
+    store.plan.schedule_enabled = true;
+    storage::write(&paths, &store).unwrap();
+    assert!(scheduler::claim(&paths, now).unwrap().is_some());
+    assert_eq!(
+        storage::read(&paths).unwrap().next_run_at,
+        Some((now + chrono::Duration::minutes(30)).to_rfc3339())
+    );
+}
+
+#[test]
+fn legacy_activity_migrates_once_and_polls_without_loading_full_reports() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let target = EvaluationTarget {
+        profile_id: uuid::Uuid::new_v4().to_string(),
+        model_id: "fixture-model".into(),
+        reasoning_effort: Some("high".into()),
+    };
+    let mut historical = run(plan(&target));
+    historical.status = RunStatus::Completed;
+    historical.finished_at = Some(Utc::now().to_rfc3339());
+    let mut legacy_result = result(&target, CaseId::Pelican);
+    legacy_result.artifact_html = None;
+    legacy_result.safe_svg = Some("<svg viewBox=\"0 0 10 10\"></svg>".into());
+    legacy_result.status = CaseStatus::Passed;
+    legacy_result.score = Some(100);
+    historical.results.push(legacy_result);
+    let mut serialized = serde_json::to_value(&historical).unwrap();
+    serialized["results"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("artifactHtml");
+    let run_path = paths
+        .data
+        .join("evaluations/runs")
+        .join(format!("{}.json", historical.id));
+    core::atomic_write(&run_path, &serde_json::to_vec_pretty(&serialized).unwrap()).unwrap();
+    let legacy_index = json!({
+        "plan": historical.plan,
+        "history": [RunSummary::from(&historical)],
+        "activeRunId": null
+    });
+    let index_path = paths.data.join("evaluations/index.json");
+    core::atomic_write(
+        &index_path,
+        &serde_json::to_vec_pretty(&legacy_index).unwrap(),
+    )
+    .unwrap();
+    let state = EvaluationState::new(paths.clone());
+    let activity = state.activity().unwrap();
+    assert_eq!(activity.records.len(), 1);
+    let record = &activity.records[0];
+    assert!(record.has_artifact);
+    assert_eq!(record.score, Some(100));
+    assert_eq!(
+        record.id,
+        json!([historical.id, target.profile_id, target.model_id, "pelican"]).to_string()
+    );
+    let compact = serde_json::to_string(&activity).unwrap();
+    for excluded in ["prompt", "output", "<svg", "artifactHtml", "safeSvg"] {
+        assert!(!compact.contains(excluded));
+    }
+    let index_before = std::fs::read(&index_path).unwrap();
+    assert_eq!(storage::read(&paths).unwrap().records_version, 1);
+    assert!(state.run(&historical.id).unwrap().results[0]
+        .artifact_html
+        .is_none());
+    core::atomic_write(&run_path, b"deliberately unreadable report after migration").unwrap();
+    let restarted = EvaluationState::new(paths.clone());
+    assert!(restarted.dashboard().unwrap().error.is_none());
+    assert_eq!(
+        serde_json::to_string(&restarted.activity().unwrap()).unwrap(),
+        compact
+    );
+    assert_eq!(std::fs::read(&index_path).unwrap(), index_before);
+    assert!(!paths.config.exists());
+}
+
+#[test]
+fn finished_activity_is_compact_idempotent_and_tracks_the_saved_artifact() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let target = EvaluationTarget {
+        profile_id: uuid::Uuid::new_v4().to_string(),
+        model_id: "fixture-model".into(),
+        reasoning_effort: None,
+    };
+    let mut completed = run(plan(&target));
+    completed.status = RunStatus::Completed;
+    completed.results.push(result(&target, CaseId::Pelican));
+    for _ in 0..2 {
+        storage::finish(&paths, &completed).unwrap();
+    }
+    let state = EvaluationState::new(paths.clone());
+    let activity = state.activity().unwrap();
+    assert_eq!(activity.records.len(), 1);
+    assert_eq!(activity.records[0].status, CaseStatus::Generated);
+    assert!(activity.records[0].has_artifact);
+    assert!(activity.records[0].score.is_none());
+    let full = state.run(&completed.id).unwrap();
+    assert_eq!(
+        full.results[0].artifact_html,
+        completed.results[0].artifact_html
+    );
+    let export: serde_json::Value =
+        serde_json::from_str(&state.export(&completed.id).unwrap().content).unwrap();
+    assert_eq!(
+        export["results"][0]["artifactHtml"],
+        completed.results[0].artifact_html.as_deref().unwrap()
+    );
+    assert!(
+        !std::fs::read_to_string(paths.data.join("evaluations/index.json"))
+            .unwrap()
+            .contains("fixture output")
+    );
 }

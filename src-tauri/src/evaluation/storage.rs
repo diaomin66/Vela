@@ -5,10 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
 const HISTORY_LIMIT: usize = 100;
-const MAX_INDEX_BYTES: u64 = 256 * 1024;
-const MAX_RUN_BYTES: u64 = 2 * 1024 * 1024;
+const RECORDS_PER_RUN: usize = 18;
+const MAX_INDEX_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_RUN_BYTES: u64 = 8 * 1024 * 1024;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct EvaluationStore {
     #[serde(default)]
@@ -20,7 +21,25 @@ pub(super) struct EvaluationStore {
     #[serde(default)]
     pub history: Vec<RunSummary>,
     #[serde(default)]
+    pub records_version: u32,
+    #[serde(default)]
+    pub records: Vec<EvaluationRecord>,
+    #[serde(default)]
     pub error: Option<String>,
+}
+
+impl Default for EvaluationStore {
+    fn default() -> Self {
+        Self {
+            plan: EvaluationPlan::default(),
+            next_run_at: None,
+            active_run_id: None,
+            history: Vec::new(),
+            records_version: 1,
+            records: Vec::new(),
+            error: None,
+        }
+    }
 }
 
 fn directory(paths: &AppPaths) -> PathBuf {
@@ -41,10 +60,14 @@ pub(super) fn read(paths: &AppPaths) -> Result<EvaluationStore, String> {
     let mut store: EvaluationStore = serde_json::from_slice(&read_bounded(&path, MAX_INDEX_BYTES)?)
         .map_err(|_| "评测计划文件无法解析，请保留文件后检查。")?;
     store.history.truncate(HISTORY_LIMIT);
+    store.records.truncate(HISTORY_LIMIT * RECORDS_PER_RUN);
     Ok(store)
 }
 pub(super) fn write(paths: &AppPaths, store: &EvaluationStore) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(store).map_err(|_| "无法保存评测计划。")?;
+    if bytes.len() as u64 > MAX_INDEX_BYTES {
+        return Err("评测索引超过保存限制。".into());
+    }
     core::atomic_write(&directory(paths).join("index.json"), &bytes)
 }
 fn run_path(paths: &AppPaths, id: &str) -> Result<PathBuf, String> {
@@ -79,6 +102,21 @@ pub(super) fn finish(paths: &AppPaths, run: &EvaluationRun) -> Result<(), String
     let expired = store
         .history
         .split_off(store.history.len().min(HISTORY_LIMIT));
+    store.records.retain(|record| {
+        record.run_id != run.id
+            && store
+                .history
+                .iter()
+                .any(|summary| summary.id == record.run_id)
+    });
+    store.records.splice(
+        0..0,
+        run.results
+            .iter()
+            .take(RECORDS_PER_RUN)
+            .map(|result| EvaluationRecord::from_result(run, result)),
+    );
+    store.records.truncate(HISTORY_LIMIT * RECORDS_PER_RUN);
     if store.active_run_id.as_deref() == Some(&run.id) {
         store.active_run_id = None;
     }
@@ -92,6 +130,7 @@ pub(super) fn finish(paths: &AppPaths, run: &EvaluationRun) -> Result<(), String
     Ok(())
 }
 pub(super) fn recover(paths: &AppPaths) -> Result<(), String> {
+    migrate_records(paths)?;
     let store = read(paths)?;
     if let Some(id) = store.active_run_id {
         let mut run = read_run(paths, &id)?;
@@ -103,6 +142,32 @@ pub(super) fn recover(paths: &AppPaths) -> Result<(), String> {
         finish(paths, &run)?;
     }
     Ok(())
+}
+
+fn migrate_records(paths: &AppPaths) -> Result<(), String> {
+    let _lock = paths.lock()?;
+    let mut store = read(paths)?;
+    if store.records_version >= 1 {
+        return Ok(());
+    }
+    store.records.clear();
+    let mut unavailable = false;
+    for summary in &store.history {
+        match read_run(paths, &summary.id) {
+            Ok(run) => store.records.extend(
+                run.results
+                    .iter()
+                    .take(RECORDS_PER_RUN)
+                    .map(|result| EvaluationRecord::from_result(&run, result)),
+            ),
+            Err(_) => unavailable = true,
+        }
+    }
+    if unavailable {
+        store.error = Some("部分旧评测记录无法读取，其余历史已保留。".into());
+    }
+    store.records_version = 1;
+    write(paths, &store)
 }
 pub(super) fn export(paths: &AppPaths, id: &str) -> Result<EvaluationExport, String> {
     let run = read_run(paths, id)?;

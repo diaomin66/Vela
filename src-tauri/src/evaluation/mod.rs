@@ -1,4 +1,5 @@
 //! Task evaluations with private credentials, bounded history and one shared run slot.
+mod artifact;
 mod cases;
 mod client;
 mod runner;
@@ -29,6 +30,12 @@ struct Runtime {
     error: Option<String>,
 }
 
+fn judge_target(plan: &EvaluationPlan) -> Option<&EvaluationTarget> {
+    plan.judge
+        .as_ref()
+        .filter(|_| plan.cases.iter().any(|case| *case != CaseId::Pelican))
+}
+
 fn validate_shape(plan: &EvaluationPlan, required: bool) -> Result<(), String> {
     if plan.targets.len() > 6 || (required && plan.targets.is_empty()) {
         return Err("请选择 1–6 个评测模型。".into());
@@ -39,14 +46,14 @@ fn validate_shape(plan: &EvaluationPlan, required: bool) -> Result<(), String> {
     {
         return Err("请选择不同的评测题目。".into());
     }
-    if !(1..=168).contains(&plan.interval_hours) {
-        return Err("定时间隔需为 1–168 小时。".into());
+    if !(10..=10080).contains(&plan.effective_interval_minutes()) {
+        return Err("定时间隔需为 10–10080 分钟。".into());
     }
     if !(30..=3600).contains(&plan.request_timeout_seconds) {
         return Err("每次请求超时需为 30–3600 秒。".into());
     }
     let mut seen = HashSet::new();
-    for target in plan.targets.iter().chain(plan.judge.iter()) {
+    for target in plan.targets.iter().chain(judge_target(plan)) {
         core::validate_id(&target.profile_id)?;
         if target.model_id.is_empty()
             || target.model_id.len() > 240
@@ -67,7 +74,7 @@ fn validate_shape(plan: &EvaluationPlan, required: bool) -> Result<(), String> {
 }
 fn validate_saved_targets(paths: &AppPaths, plan: &EvaluationPlan) -> Result<(), String> {
     let store = core::load_store(paths)?;
-    for target in plan.targets.iter().chain(plan.judge.iter()) {
+    for target in plan.targets.iter().chain(judge_target(plan)) {
         let profile = store
             .profiles
             .iter()
@@ -128,6 +135,11 @@ impl EvaluationState {
             error: runtime.error.clone().or(store.error),
         })
     }
+    pub(crate) fn activity(&self) -> Result<EvaluationActivity, String> {
+        Ok(EvaluationActivity {
+            records: storage::read(&self.paths)?.records,
+        })
+    }
     pub(crate) fn save_plan(&self, plan: EvaluationPlan) -> Result<EvaluationDashboard, String> {
         // Always allow disabling a stale plan, even when its channels were removed.
         validate_shape(&plan, plan.schedule_enabled)?;
@@ -140,7 +152,7 @@ impl EvaluationState {
             let mut store = storage::read(&self.paths)?;
             store.next_run_at = plan
                 .schedule_enabled
-                .then(|| scheduler::next_time(Utc::now(), plan.interval_hours));
+                .then(|| scheduler::next_time(Utc::now(), plan.effective_interval_minutes()));
             store.plan = plan;
             store.error = None;
             storage::write(&self.paths, &store)?;
@@ -171,9 +183,7 @@ impl EvaluationState {
                     .iter()
                     .map(|target| prepare_target(&self.paths, target))
                     .collect::<Result<_, _>>()?,
-                judge: plan
-                    .judge
-                    .as_ref()
+                judge: judge_target(&plan)
                     .map(|target| prepare_target(&self.paths, target))
                     .transpose()?,
             };

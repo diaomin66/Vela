@@ -52,9 +52,10 @@ function within(base, target) {
 
 const svg = '<svg viewBox="0 0 240 140"><title>Pelican bicycle fixture</title><circle cx="50" cy="100" r="28"/><circle cx="180" cy="100" r="28"/><path d="M50 100L100 55L180 100Z" fill="none" stroke="black"/><path d="M100 55Q120 10 150 40L125 52Z" fill="white" stroke="black"/></svg>';
 const unsafeSvg = '<svg viewBox="0 0 20 20" onload="globalThis.fixtureExecuted=true"><script>globalThis.fixtureExecuted=true</script><circle cx="10" cy="10" r="8"/></svg>';
+const animation = `<!doctype html><html><head><style>@keyframes spin{to{transform:rotate(360deg)}}#wheel{transform-box:fill-box;transform-origin:center;animation:spin 2s linear infinite}</style></head><body><h1>Pelican cycling fixture</h1>${svg.replace('<circle cx="50"', '<circle id="wheel" cx="50"')}<script>globalThis.fixtureExecuted=true</script></body></html>`;
 const answers = {
   candy: '{"answer":21}',
-  pelican: svg,
+  pelican: animation,
   judgment: '{"J1":true,"J2":false,"J3":false,"J4":true,"J5":false,"J6":true}',
 };
 const channels = [
@@ -120,62 +121,52 @@ async function verifyEvaluationUi(run, exported) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '评测', exact: true }).click();
   await page.getByRole('heading', { name: '模型评测', exact: true }).waitFor({ state: 'visible' });
-  const results = page.getByRole('region', { name: '评测结果', exact: true });
-  await results.getByRole('heading', { name: '已完成', exact: true }).waitFor({ state: 'visible' });
-  assert.equal(await results.locator('.evaluation-result-row').count(), 3);
-  assert.equal(await page.getByRole('complementary', { name: '评测历史', exact: true }).locator('.evaluation-history-row').count(), 1);
-  for (const result of run.results) {
-    const title = { candy: '糖果推理', pelican: '鹈鹕绘图', judgment: '模型判题' }[result.caseId];
-    const row = results.getByRole('button', { name: `查看 ${result.modelId} ${title} 结果`, exact: true });
-    await row.waitFor({ state: 'visible' });
-    assert((await row.innerText()).includes('100'));
-  }
+  const card = page.getByTestId('pelican-card');
+  await card.waitFor({ state: 'visible' });
+  assert.equal(await card.count(), 1);
+  await card.locator('.artifact-preview[data-ready="true"]').waitFor();
+  const drawing = page.frameLocator('iframe').first();
+  await drawing.locator('#wheel').waitFor();
+  const before = await drawing.locator('#wheel').evaluate((element) => getComputedStyle(element).transform);
+  await delay(150);
+  assert.notEqual(await drawing.locator('#wheel').evaluate((element) => getComputedStyle(element).transform), before);
+  assert.equal(await page.evaluate(() => globalThis.fixtureExecuted), undefined);
   await page.evaluate(() => document.fonts.ready.then(() => true));
-  const evaluationScreenshot = path.join(screenshots, 'vela-native-v5-evaluation.png');
+  const evaluationScreenshot = path.join(screenshots, `vela-native-${version}-gallery.png`);
   await page.screenshot({ path: evaluationScreenshot, animations: 'disabled' });
-
-  const pelican = run.results.find((result) => result.caseId === 'pelican');
-  await results.getByRole('button', { name: `查看 ${pelican.modelId} 鹈鹕绘图 结果`, exact: true }).click();
-  const detail = page.getByRole('dialog', { name: '鹈鹕绘图', exact: true });
-  await detail.waitFor({ state: 'visible' });
-  const drawing = detail.getByRole('img', { name: '被测模型绘制的骑自行车鹈鹕', exact: true });
-  await drawing.waitFor({ state: 'visible' });
-  const rendered = await drawing.evaluate(async (image) => {
-    await image.decode();
-    return { complete: image.complete, width: image.naturalWidth, height: image.naturalHeight, src: image.getAttribute('src') };
-  });
-  assert(rendered.complete && rendered.width > 0 && rendered.height > 0, 'The packaged UI must decode a real safe SVG image.');
-  assert.equal(decodeURIComponent(rendered.src.split(',').slice(1).join(',')), pelican.safeSvg);
-  await detail.getByRole('button', { name: '原文', exact: true }).click();
-  assert.equal(await detail.locator('pre').innerText(), pelican.output);
-  await detail.getByRole('button', { name: '题目', exact: true }).click();
-  assert.equal(await detail.locator('pre').innerText(), pelican.prompt);
-  await detail.getByRole('button', { name: '结果', exact: true }).click();
-  await drawing.waitFor({ state: 'visible' });
-  await drawing.evaluate((image) => image.decode());
-  assert((await detail.innerText()).includes('92 / 100'));
-  const pelicanScreenshot = path.join(screenshots, 'vela-native-v5-pelican.png');
-  await page.screenshot({ path: pelicanScreenshot, animations: 'disabled' });
-  await detail.getByRole('button', { name: '关闭弹窗', exact: true }).click();
-  await detail.waitFor({ state: 'detached' });
-
-  let blobDownloads = 0;
-  const download = () => { blobDownloads += 1; };
-  page.on('download', download);
+  await card.getByRole('button', { name: '查看 evaluation-subject 鹈鹕动画 结果', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: '鹈鹕动画', exact: true });
+  await detail.waitFor();
+  await detail.getByRole('tab', { name: '原文', exact: true }).click();
+  assert.equal(await detail.locator('pre').innerText(), run.results.find((result) => result.caseId === 'pelican').output);
+  await detail.getByRole('tab', { name: '题目', exact: true }).click();
+  assert.equal(await detail.locator('pre').innerText(), run.results.find((result) => result.caseId === 'pelican').prompt);
+  await detail.getByRole('tab', { name: '结果', exact: true }).click();
+  await detail.locator('.artifact-preview[data-ready="true"]').waitFor();
   const previousExport = await stat(exported.path);
-  await results.getByRole('button', { name: '导出评测报告', exact: true }).click();
-  const success = page.getByRole('status').filter({ hasText: '报告已保存' });
-  await success.waitFor({ state: 'visible' });
-  const savePath = page.getByRole('textbox', { name: '报告保存路径', exact: true });
-  await savePath.waitFor({ state: 'visible' });
+  await detail.getByRole('button', { name: '导出评测报告', exact: true }).click();
+  await detail.getByRole('status').filter({ hasText: '报告已保存' }).waitFor();
+  const savePath = detail.getByRole('textbox', { name: '报告保存路径', exact: true });
   assert.equal(await savePath.inputValue(), exported.path);
   assert(await savePath.evaluate((input) => input.readOnly));
-  await until(async () => (await stat(exported.path)).mtimeMs > previousExport.mtimeMs, 'native frontend export file replacement');
+  await until(async () => (await stat(exported.path)).mtimeMs > previousExport.mtimeMs, 'native export file replacement');
   assert.deepEqual(JSON.parse(await readFile(exported.path, 'utf8')), run);
-  assert.equal(blobDownloads, 0, 'Desktop export must use the native saved report, without starting a browser Blob download.');
-  page.off('download', download);
-  report.ui = { evaluationScreenshot, pelicanScreenshot, exportPath: exported.path, decodedSvg: true, nativeExportFeedback: true };
-  check('Packaged evaluation UI renders native results and SVG, exposes raw evidence and confirms the actual export path');
+  await page.keyboard.press('Escape');
+  await detail.waitFor({ state: 'detached' });
+  await page.getByRole('tab', { name: '糖果推理', exact: true }).click();
+  const timeline = page.getByTestId('candy-timeline');
+  await timeline.waitFor();
+  assert.equal(await timeline.locator('.evaluation-time-block').count(), 48);
+  await timeline.locator('.evaluation-time-block[data-state-value="passed"]').first().click();
+  const candy = page.getByRole('dialog', { name: '糖果推理', exact: true });
+  await candy.waitFor();
+  assert((await candy.innerText()).includes('21'));
+  await page.keyboard.press('Escape');
+  await candy.waitFor({ state: 'detached' });
+  const timelineScreenshot = path.join(screenshots, `vela-native-${version}-timeline.png`);
+  await page.screenshot({ path: timelineScreenshot, animations: 'disabled' });
+  report.ui = { evaluationScreenshot, timelineScreenshot, exportPath: exported.path, animationChanged: true, nativeExportFeedback: true };
+  check('Packaged gallery animates generated HTML, timeline opens exact answers and native export confirms its saved path');
 }
 
 async function stopApplication() {
@@ -277,10 +268,10 @@ try {
         assert.equal(body.store, false);
         assert.equal(body.tools, undefined);
         assert.equal(typeof body.input, 'string');
-        assert.equal(body.max_output_tokens, 8192);
         const isJudge = body.input.startsWith('你是评审');
         assert.equal(isJudge, channel.judge);
-        const caseId = body.input.includes('J1') ? 'judgment' : body.input.includes('pelican riding a bicycle') ? 'pelican' : 'candy';
+        const caseId = body.input.includes('J1') ? 'judgment' : body.input.includes('鹈鹕') ? 'pelican' : 'candy';
+        assert.equal(body.max_output_tokens, caseId === 'pelican' && !isJudge ? 32768 : 8192);
         const requestRecord = { phase: mode, judge: isJudge, caseId, model: body.model, effort: body.reasoning?.effort ?? null, disconnected: false };
         report.requests.push(requestRecord);
         assert.deepEqual(body.reasoning, channel.judge ? undefined : { effort: 'high' });
@@ -328,6 +319,7 @@ try {
   assert.equal(empty.history.length, 0);
   assert.equal(empty.active, null);
   assert.equal(empty.plan.requestTimeoutSeconds, 300);
+  assert.equal(empty.plan.intervalMinutes, 30);
   assert.deepEqual(empty.cases.map((item) => item.id).sort(), ['candy', 'judgment', 'pelican']);
   for (const channel of channels) {
     const saved = await invoke('save_profile', { input: {
@@ -343,10 +335,14 @@ try {
   }
   const subject = { profileId: channels[0].profileId, modelId: channels[0].model, reasoningEffort: 'high' };
   const judge = { profileId: channels[1].profileId, modelId: channels[1].model, reasoningEffort: null };
-  const plan = { targets: [subject], cases: ['candy', 'pelican', 'judgment'], judge, scheduleEnabled: false, intervalHours: 1, requestTimeoutSeconds: 125 };
+  const plan = { targets: [subject], cases: ['candy', 'pelican', 'judgment'], judge, scheduleEnabled: false, intervalHours: 1, intervalMinutes: 30, requestTimeoutSeconds: 125 };
   const legacyPlan = { ...plan };
   delete legacyPlan.requestTimeoutSeconds;
-  assert.equal((await invoke('save_evaluation_plan', { plan: legacyPlan })).plan.requestTimeoutSeconds, 120);
+  delete legacyPlan.intervalMinutes;
+  const migrated = await invoke('save_evaluation_plan', { plan: legacyPlan });
+  assert.equal(migrated.plan.requestTimeoutSeconds, 120);
+  assert.equal(migrated.plan.intervalMinutes, null);
+  assert.equal(migrated.plan.intervalHours, 1);
   const saved = await invoke('save_evaluation_plan', { plan });
   assert.deepEqual(saved.plan, plan);
   assert.deepEqual((await invoke('get_evaluation_dashboard')).plan, plan);
@@ -361,43 +357,58 @@ try {
   assert.equal(run.totalCases, 3);
   assert.equal(run.completedCases, 3);
   assert.equal(run.results.length, 3);
-  assert.equal(report.requests.length, 6);
-  assert.deepEqual(report.requests.map((item) => item.judge), [false, true, false, true, false, true]);
+  assert.equal(report.requests.length, 5);
+  assert.deepEqual(report.requests.map((item) => item.judge), [false, true, false, false, true]);
   for (const result of run.results) {
-    assert.equal(result.status, 'passed');
-    assert.equal(result.score, 100);
+    assert.equal(result.status, result.caseId === 'pelican' ? 'generated' : 'passed');
+    assert.equal(result.score, result.caseId === 'pelican' ? null : 100);
     assert.equal(result.output, answers[result.caseId]);
     assert(result.checks.every((item) => item.passed));
-    assert(result.prompt.length > 50);
+    assert(result.prompt.length > 20);
     assert.equal(result.inputTokens, 31);
     assert.equal(result.outputTokens, 17);
     assert.equal(result.reasoningEffort, 'high');
-    assert.equal(result.judge.score, 92);
-    assert.equal(result.judge.error, null);
-    assert(result.judge.explanation.includes('[REDACTED]'));
     if (result.caseId === 'pelican') {
-      assert(result.safeSvg.includes('xmlns="http://www.w3.org/2000/svg"'));
-      assert(!/<script|onload|foreignObject/i.test(result.safeSvg));
-    } else assert.equal(result.safeSvg, null);
+      assert.equal(result.artifactHtml, animation);
+      assert.equal(result.judge, null);
+      assert.deepEqual(result.checks, []);
+    } else {
+      assert.equal(result.safeSvg, null);
+      assert.equal(result.judge.score, 92);
+      assert.equal(result.judge.error, null);
+      assert(result.judge.explanation.includes('[REDACTED]'));
+    }
   }
+  const activity = await invoke('get_evaluation_activity');
+  assert.equal(activity.records.length, 3);
+  assert.deepEqual(activity.records.map((record) => record.caseId), ['candy', 'pelican', 'judgment']);
+  for (const record of activity.records) {
+    assert.equal(record.runId, run.id);
+    assert.equal(record.modelId, channels[0].model);
+    assert.equal(record.createdAt, run.startedAt);
+    assert.equal(record.hasArtifact, record.caseId === 'pelican');
+    for (const field of ['output', 'prompt', 'artifactHtml', 'safeSvg', 'judge']) assert(!(field in record));
+  }
+  assertNoSecrets(activity);
   const exported = await invoke('export_evaluation_run', { runId: run.id });
   within(path.join(dataDirectory, 'evaluations', 'exports'), exported.path);
   assert.equal(path.basename(exported.path), exported.fileName);
   assert.deepEqual(JSON.parse(exported.content), run);
   assert.equal(await readFile(exported.path, 'utf8'), exported.content);
   assertNoSecrets(exported);
-  report.manualRun = { id: run.id, status: run.status, cases: run.results.map((item) => ({ id: item.caseId, score: item.score, judgeScore: item.judge.score })) };
-  check('Three native cases, independent judge, raw outputs, scores, history and JSON export');
+  report.manualRun = { id: run.id, status: run.status, cases: run.results.map((item) => ({ id: item.caseId, score: item.score, judgeScore: item.judge?.score ?? null })) };
+  check('Three native cases, text-only judge, compact activity, raw outputs, history and JSON export');
   await verifyEvaluationUi(run, exported);
 
   mode = 'unsafe-svg';
   const unsafeRun = await finishedRun(await startRun({ ...plan, cases: ['pelican'], judge: null }));
-  assert.equal(unsafeRun.results[0].status, 'failed');
-  assert.equal(unsafeRun.results[0].score, 0);
+  assert.equal(unsafeRun.results[0].status, 'generated');
+  assert.equal(unsafeRun.results[0].score, null);
   assert.equal(unsafeRun.results[0].safeSvg, null);
   assert.equal(unsafeRun.results[0].output, unsafeSvg);
+  assert.equal(unsafeRun.results[0].artifactHtml, unsafeSvg);
   assert.equal(await page.evaluate(() => globalThis.fixtureExecuted), undefined);
-  check('Unsafe SVG is retained as text and excluded from native preview data');
+  check('Scripted artifacts remain intact without executing in the application document');
 
   const beforeInvalid = report.requests.length;
   await assert.rejects(startRun({ ...plan, targets: [{ ...subject, reasoningEffort: 'ultra' }] }));

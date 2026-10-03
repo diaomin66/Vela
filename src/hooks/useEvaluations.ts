@@ -1,42 +1,93 @@
-import { useSyncExternalStore } from 'react';
-import { evaluationApi, type EvaluationApi, type EvaluationDashboard, type EvaluationPlan } from '../lib/evaluation';
+import { useEffect, useMemo, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { evaluationApi, type EvaluationDashboard, type EvaluationPlan } from '../lib/evaluation';
+import { recordsForRun } from '../lib/evaluation/records';
 import { errorMessage } from '../lib/utils';
 
-interface Snapshot { data: EvaluationDashboard | null; pending: boolean; error: string | null }
-export function createEvaluationStore(api: EvaluationApi) {
-  let snapshot: Snapshot = { data: null, pending: false, error: null };
-  let generation = 0;
-  let reading = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const listeners = new Set<() => void>();
-  const publish = (value: Snapshot) => { snapshot = value; listeners.forEach((listener) => listener()); };
-  function schedule() {
-    clearTimeout(timer);
-    if (listeners.size) timer = setTimeout(() => void refresh(), snapshot.data?.active ? 700 : 15000);
+export const evaluationKeys = {
+  dashboard: ['evaluations', 'dashboard'] as const,
+  activity: ['evaluations', 'activity'] as const,
+  run: (id: string | null) => ['evaluations', 'run', id] as const,
+};
+
+type Operation = { kind: 'save' | 'start'; plan: EvaluationPlan } | { kind: 'cancel'; runId: string };
+
+export function useEvaluations() {
+  const client = useQueryClient();
+  const locked = useRef(false);
+  const previousActive = useRef<string | null>(null);
+  const dashboard = useQuery({
+    queryKey: evaluationKeys.dashboard,
+    queryFn: () => evaluationApi.dashboard(),
+    refetchInterval: (query) => query.state.data?.active ? 700 : 15_000,
+  });
+  const historyVersion = dashboard.data?.history.map((run) => `${run.id}:${run.status}`).join('|') ?? '';
+  const feed = useQuery({
+    queryKey: evaluationKeys.activity,
+    queryFn: () => evaluationApi.activity(),
+    enabled: Boolean(dashboard.data),
+    refetchInterval: 15_000,
+  });
+  useEffect(() => {
+    if (dashboard.data) void client.invalidateQueries({ queryKey: evaluationKeys.activity });
+  }, [client, historyVersion, Boolean(dashboard.data)]);
+  useEffect(() => {
+    const active = dashboard.data?.active;
+    if (active) client.setQueryData(evaluationKeys.run(active.id), active);
+    if (previousActive.current && previousActive.current !== active?.id) {
+      void client.invalidateQueries({ queryKey: evaluationKeys.run(previousActive.current) });
+    }
+    previousActive.current = active?.id ?? null;
+  }, [client, dashboard.data?.active]);
+  const mutation = useMutation({
+    mutationFn: (operation: Operation) => operation.kind === 'cancel'
+      ? evaluationApi.cancel(operation.runId)
+      : evaluationApi[operation.kind](operation.plan),
+    onMutate: async () => {
+      await client.cancelQueries({ queryKey: evaluationKeys.dashboard });
+      await client.cancelQueries({ queryKey: evaluationKeys.activity });
+    },
+    onSuccess: (data: EvaluationDashboard) => {
+      client.setQueryData(evaluationKeys.dashboard, data);
+      void client.invalidateQueries({ queryKey: evaluationKeys.activity });
+    },
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: evaluationKeys.dashboard });
+    },
+  });
+  async function act(operation: Operation) {
+    if (locked.current) return false;
+    locked.current = true;
+    try { await mutation.mutateAsync(operation); return true; }
+    catch { return false; }
+    finally { locked.current = false; }
   }
-  async function refresh() {
-    if (reading || snapshot.pending || document.hidden) { schedule(); return; }
-    const request = generation; reading = true;
-    try { const data = await api.dashboard(); if (generation === request) publish({ ...snapshot, data, error: null }); }
-    catch (error) { if (generation === request) publish({ ...snapshot, error: errorMessage(error) }); }
-    finally { reading = false; schedule(); }
-  }
-  function visible() { if (!document.hidden) void refresh(); }
-  async function act(operation: () => Promise<EvaluationDashboard>) {
-    if (snapshot.pending) return false;
-    generation++; publish({ ...snapshot, pending: true, error: null });
-    try { publish({ data: await operation(), pending: false, error: null }); return true; }
-    catch (error) { publish({ ...snapshot, pending: false, error: errorMessage(error) }); return false; }
-    finally { schedule(); }
-  }
+  const activity = useMemo(() => {
+    if (!feed.data) return null;
+    const active = dashboard.data?.active;
+    if (!active) return feed.data;
+    return { records: [...recordsForRun(active), ...feed.data.records.filter((record) => record.runId !== active.id)] };
+  }, [feed.data, dashboard.data?.active]);
+  const error = mutation.error ?? dashboard.error ?? feed.error;
   return {
-    getSnapshot: () => snapshot,
-    subscribe(listener: () => void) { listeners.add(listener); if (listeners.size === 1) { document.addEventListener('visibilitychange', visible); void refresh(); } return () => { listeners.delete(listener); if (!listeners.size) { clearTimeout(timer); document.removeEventListener('visibilitychange', visible); } }; },
-    refresh,
-    save: (plan: EvaluationPlan) => act(() => api.save(plan)),
-    start: (plan: EvaluationPlan) => act(() => api.start(plan)),
-    cancel: (runId: string) => act(() => api.cancel(runId)),
+    data: dashboard.data ?? null,
+    activity,
+    pending: mutation.isPending,
+    refreshing: dashboard.isFetching || feed.isFetching,
+    error: error ? errorMessage(error) : null,
+    refresh: async () => { mutation.reset(); await Promise.all([dashboard.refetch(), feed.refetch()]); },
+    save: (plan: EvaluationPlan) => act({ kind: 'save', plan }),
+    start: (plan: EvaluationPlan) => act({ kind: 'start', plan }),
+    cancel: (runId: string) => act({ kind: 'cancel', runId }),
   };
 }
-const store = createEvaluationStore(evaluationApi);
-export function useEvaluations() { return { ...useSyncExternalStore(store.subscribe, store.getSnapshot), refresh: store.refresh, save: store.save, start: store.start, cancel: store.cancel }; }
+
+export function useEvaluationRun(runId: string | null) {
+  return useQuery({
+    queryKey: evaluationKeys.run(runId),
+    queryFn: () => evaluationApi.run(runId!),
+    enabled: Boolean(runId),
+    staleTime: 60_000,
+    refetchInterval: (query) => query.state.data?.status === 'running' ? 1_000 : false,
+  });
+}

@@ -3,8 +3,8 @@ use super::{storage, types::EvaluationPlan};
 use crate::core::AppPaths;
 use chrono::{DateTime, Duration, Utc};
 
-pub(super) fn next_time(now: DateTime<Utc>, hours: u32) -> String {
-    (now + Duration::hours(i64::from(hours))).to_rfc3339()
+pub(super) fn next_time(now: DateTime<Utc>, minutes: u32) -> String {
+    (now + Duration::minutes(i64::from(minutes))).to_rfc3339()
 }
 pub(super) fn due(enabled: bool, next: Option<&str>, now: DateTime<Utc>) -> bool {
     enabled
@@ -25,7 +25,10 @@ pub(super) fn claim(
     ) {
         return Ok(None);
     }
-    store.next_run_at = Some(next_time(now, store.plan.interval_hours.clamp(1, 168)));
+    store.next_run_at = Some(next_time(
+        now,
+        store.plan.effective_interval_minutes().clamp(10, 10080),
+    ));
     storage::write(paths, &store)?;
     Ok(Some(store.plan))
 }
@@ -46,13 +49,14 @@ mod tests {
         let mut store = storage::read(&paths).unwrap();
         store.plan.schedule_enabled = true;
         store.plan.interval_hours = 6;
+        store.plan.interval_minutes = None;
         store.next_run_at = Some((now - Duration::days(10)).to_rfc3339());
         storage::write(&paths, &store).unwrap();
         assert!(claim(&paths, now).unwrap().is_some());
         assert!(claim(&paths, now).unwrap().is_none());
         assert_eq!(
             storage::read(&paths).unwrap().next_run_at,
-            Some(next_time(now, 6))
+            Some(next_time(now, 360))
         );
         assert!(!paths.config.exists());
     }

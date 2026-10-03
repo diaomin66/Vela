@@ -17,6 +17,12 @@ pub(super) fn get_evaluation_dashboard(
     state.dashboard()
 }
 #[tauri::command]
+pub(super) fn get_evaluation_activity(
+    state: State<'_, EvaluationState>,
+) -> Result<EvaluationActivity, String> {
+    state.activity()
+}
+#[tauri::command]
 pub(super) fn save_evaluation_plan(
     state: State<'_, EvaluationState>,
     plan: EvaluationPlan,
