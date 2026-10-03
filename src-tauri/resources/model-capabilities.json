@@ -1,0 +1,886 @@
+{
+  "checkedAt": "2026-10-03",
+  "policy": "Exact model IDs and exact snapshots only. API model pages take precedence over client picker presets. Null efforts means unverified, not proof of no support. Null API default means not documented, not none. Native defaults are chosen separately to keep the native picker on a valid effort.",
+  "models": [
+    {
+      "ids": [
+        "gpt-5",
+        "gpt-5-2025-08-07"
+      ],
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5",
+        "https://developers.openai.com/api/docs/guides/gpt-5",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5-mini",
+        "gpt-5-mini-2025-08-07"
+      ],
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5-mini",
+        "https://developers.openai.com/api/docs/guides/gpt-5",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5-nano",
+        "gpt-5-nano-2025-08-07"
+      ],
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5-nano",
+        "https://developers.openai.com/api/docs/guides/gpt-5",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5-pro",
+        "gpt-5-pro-2025-10-06"
+      ],
+      "efforts": [
+        "high"
+      ],
+      "apiDefault": "high",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5-pro"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.1",
+        "gpt-5.1-2025-11-13"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "none",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.1"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.2",
+        "gpt-5.2-2025-12-11"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "none",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.2"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.2-pro",
+        "gpt-5.2-pro-2025-12-11"
+      ],
+      "efforts": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.2-pro"
+      ],
+      "note": "API page lists supported values without a default."
+    },
+    {
+      "ids": [
+        "gpt-5.4",
+        "gpt-5.4-2026-03-05"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "none",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.4"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.4-mini",
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "none",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.4-mini"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.4-nano",
+        "gpt-5.4-nano-2026-03-17"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "none",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.4-nano"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.4-pro",
+        "gpt-5.4-pro-2026-03-05"
+      ],
+      "efforts": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.4-pro"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.5",
+        "gpt-5.5-2026-04-23"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.5"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.5-pro",
+        "gpt-5.5-pro-2026-04-23"
+      ],
+      "efforts": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": "high",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.5-pro"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5-codex"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5-codex",
+        "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs"
+      ],
+      "note": "API page omits an explicit effort set; supported options use this exact model's official client preset."
+    },
+    {
+      "ids": [
+        "gpt-5.1-codex"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.1-codex",
+        "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs"
+      ],
+      "note": "API page omits an explicit effort set; supported options use this exact model's official client preset."
+    },
+    {
+      "ids": [
+        "gpt-5.1-codex-max"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.1-codex-max",
+        "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs"
+      ],
+      "note": "Exact official client capability fallback; API page does not specify the server default."
+    },
+    {
+      "ids": [
+        "gpt-5.1-codex-mini"
+      ],
+      "efforts": [
+        "medium",
+        "high"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini",
+        "https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs"
+      ],
+      "note": "The official client exposes only medium/high, not low or xhigh."
+    },
+    {
+      "ids": [
+        "gpt-5.2-codex"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.2-codex"
+      ],
+      "note": "API page confirms the effort set but not a default."
+    },
+    {
+      "ids": [
+        "gpt-5.3-codex"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.3-codex",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
+      ],
+      "note": "API page confirms the effort set; native default comes from the exact official client preset."
+    },
+    {
+      "ids": [
+        "gpt-5.6-sol",
+        "gpt-5.6"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+      ],
+      "note": "The API model page explicitly names gpt-5.6 as an alias. Pro uses reasoning.mode, not another model slug."
+    },
+    {
+      "ids": [
+        "gpt-5.6-terra"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-5.6-luna"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-6-sol"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6-sol"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-6-luna"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6-luna"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-6.1-sol"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+      ],
+      "note": ""
+    },
+    {
+      "ids": [
+        "gpt-6-astra"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": null,
+      "nativeDefault": "low",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
+      ],
+      "note": "The API confirms the effort set; the exact client preset uses low. Ultra is a client orchestration choice, not a public API effort."
+    },
+    {
+      "ids": [
+        "o1",
+        "o1-2024-12-17"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o1",
+        "https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py",
+        "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2"
+      ],
+      "note": "Original o-series supported values and pre-GPT-5.1 default are recorded by the official API SDK; do not apply this rule to unverified variants."
+    },
+    {
+      "ids": [
+        "o3",
+        "o3-2025-04-16"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o3",
+        "https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py",
+        "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2"
+      ],
+      "note": "Original o-series supported values and pre-GPT-5.1 default are recorded by the official API SDK; do not apply this rule to unverified variants."
+    },
+    {
+      "ids": [
+        "o3-mini",
+        "o3-mini-2025-01-31"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o3-mini",
+        "https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py",
+        "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2"
+      ],
+      "note": "Original o-series supported values and pre-GPT-5.1 default are recorded by the official API SDK; do not apply this rule to unverified variants."
+    },
+    {
+      "ids": [
+        "o4-mini",
+        "o4-mini-2025-04-16"
+      ],
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o4-mini",
+        "https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py",
+        "https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py",
+        "https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2"
+      ],
+      "note": "Original o-series supported values and pre-GPT-5.1 default are recorded by the official API SDK; do not apply this rule to unverified variants."
+    },
+    {
+      "ids": [
+        "o1-mini",
+        "o1-mini-2024-09-12"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o1-mini"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "o1-preview",
+        "o1-preview-2024-09-12"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o1-preview"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "o1-pro",
+        "o1-pro-2025-03-19"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o1-pro"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "o3-pro",
+        "o3-pro-2025-06-10"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o3-pro"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "o3-deep-research",
+        "o3-deep-research-2025-06-26"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o3-deep-research"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "o4-mini-deep-research",
+        "o4-mini-deep-research-2025-06-26"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/o4-mini-deep-research"
+      ],
+      "note": "Model page does not document a complete configurable effort set. No automatic capability claim; configure explicitly if the provider documents support."
+    },
+    {
+      "ids": [
+        "codex-mini-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/codex-mini-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-5-chat-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5-chat-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-5.1-chat-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.1-chat-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-5.2-chat-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.2-chat-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-5.3-chat-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.3-chat-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-5.6-cyber"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.6-cyber"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-daybreak-red-latest"
+      ],
+      "efforts": null,
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest"
+      ],
+      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+    },
+    {
+      "ids": [
+        "gpt-daybreak-blue-latest"
+      ],
+      "efforts": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "apiDefault": "medium",
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-daybreak-blue-latest",
+        "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+      ],
+      "note": "The model page explicitly lists gpt-5.6-sol as this alias's current snapshot. This evidence may change when the alias moves."
+    },
+    {
+      "ids": [
+        "gpt-4.1",
+        "gpt-4.1-2025-04-14"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4.1"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-4.1-mini",
+        "gpt-4.1-mini-2025-04-14"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4.1-mini"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-4.1-nano",
+        "gpt-4.1-nano-2025-04-14"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4.1-nano"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-4o",
+        "gpt-4o-2024-05-13",
+        "gpt-4o-2024-08-06",
+        "gpt-4o-2024-11-20"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4o"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-4o-mini",
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-4-turbo",
+        "gpt-4-turbo-2024-04-09"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-4-turbo"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    },
+    {
+      "ids": [
+        "gpt-3.5-turbo"
+      ],
+      "efforts": [],
+      "apiDefault": null,
+      "nativeDefault": null,
+      "nativeDefaultSource": null,
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-3.5-turbo"
+      ],
+      "note": "Non-reasoning model; no configurable reasoning effort is advertised."
+    }
+  ]
+}

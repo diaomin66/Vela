@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vela",
+  "version": "0.4.0",
+  "identifier": "app.vela.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Vela",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 680,
+        "center": true,
+        "decorations": false,
+        "shadow": true,
+        "backgroundColor": "#f5f6f3",
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": [
+      "nsis"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "Codex connections, diagnostics and recovery",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "SimpChinese",
+          "English"
+        ],
+        "displayLanguageSelector": false,
+        "installerHooks": "installer-hooks.nsh"
+      }
+    },
+    "resources": [
+      "resources/LICENSE.openai-codex",
+      "resources/NOTICE.openai-codex",
+      "resources/THIRD_PARTY_NOTICES.md"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "requireSignedVersion": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1QTZCRkY2N0U4MjVENTUKUldSVlhZSis5cittMVgxRFlUOHRrS1Y5bW1hbnJhTUFOc09WYTZGUVFyMTFmaDRNREUrMno2TnkK",
+      "endpoints": ["https://github.com/diaomin66/Vela/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

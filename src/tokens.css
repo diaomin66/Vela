@@ -1,0 +1,14 @@
+:root {
+  --canvas: #f5f6f3;
+  --surface: #ffffff;
+  --surface-soft: #edf0e9;
+  --ink: #2d382e;
+  --muted: #667263;
+  --sage-dark: #466247;
+  --mark-cutout: #f5f6f3;
+  --danger: #9d4639;
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
+  color-scheme: light;
+}

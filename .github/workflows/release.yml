@@ -1,0 +1,85 @@
+name: Release Windows app
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Check release versions
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          node --input-type=module -e "import {readFileSync as read} from 'node:fs'; import {releaseVersion} from './scripts/release-manifest.mjs'; releaseVersion(JSON.parse(read('package.json')),JSON.parse(read('src-tauri/tauri.conf.json')),read('src-tauri/Cargo.toml','utf8'),process.env.RELEASE_TAG);"
+      - name: Validate frontend and domain
+        run: |
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --lib
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build signed Windows installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY -or -not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) { throw 'Updater signing secrets are missing.' }
+          npm run desktop:build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare updater feed and checksums
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          node scripts/release-manifest.mjs --tag $env:RELEASE_TAG --repository $env:RELEASE_REPOSITORY --notes-file "docs/releases/$version.md"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $assets = @("release/Vela_${version}_x64-setup.exe", "release/Vela_${version}_x64-setup.exe.sig", 'release/latest.json', "release/SHA256SUMS-${version}.txt")
+          gh release create $env:RELEASE_TAG @assets --repo $env:RELEASE_REPOSITORY --verify-tag --title "Vela $version" --notes-file "docs/releases/$version.md" --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signed-windows-release
+          path: release/
+          retention-days: 14
