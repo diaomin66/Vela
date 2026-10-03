@@ -221,6 +221,17 @@ try {
   assert.equal(manualDownloads.autoDownload, false);
   assert.deepEqual(JSON.parse(await readFile(path.join(dataDirectory, 'update-preferences.json'), 'utf8')), { autoDownload: false });
   assert.equal(await readFile(configPath, 'utf8'), original, 'Update preferences must not modify the user configuration.');
+  if (process.env.VELA_SMOKE_PUBLIC_UPDATE === '1') {
+    let publishedStatus = await invoke('check_for_updates');
+    const checkDeadline = Date.now() + 40000;
+    while (publishedStatus.phase === 'checking' && Date.now() < checkDeadline) {
+      await delay(200);
+      publishedStatus = await invoke('get_update_status');
+    }
+    assert.equal(publishedStatus.phase, 'latest', 'The published application must recognize its own version via the actual GitHub update endpoint.');
+    assert.equal(publishedStatus.autoDownload, false);
+    assert(publishedStatus.checkedAt);
+  }
   await invoke('save_settings', { input: {
     providerName: 'Vela', gatewayPort, autoRefresh: false, refreshMinutes: 15,
   } });
