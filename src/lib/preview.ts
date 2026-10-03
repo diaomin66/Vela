@@ -4,17 +4,21 @@ import type { Backup, ChangePreview, ChannelModel, Dashboard, DiagnosticItem, Pr
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const now = () => new Date().toISOString();
 const item = (id: string, title: string, description: string): DiagnosticItem => ({ id, category: 'preview', title, description, status: 'passed', repairable: false });
-const effortOrder = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+const effortOrder = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 // Demo capabilities are explicit fixtures. Native capability policy lives in reasoning.rs.
 const demoReasoning = (model: ChannelModel) => {
   const efforts = effortOrder.filter((effort) => model.reasoningEfforts?.includes(effort));
   const preferred = model.defaultReasoningEffort;
-  return { supportedReasoningEfforts: efforts, defaultReasoningEffort: preferred && efforts.includes(preferred) ? preferred : efforts.includes('medium') ? 'medium' : efforts[0] ?? null };
+  const nativeEffort = ['max', 'xhigh', 'high', 'medium', 'low'].find((effort) => efforts.includes(effort));
+  const nativeReasoning = efforts.includes('ultra') && nativeEffort
+    ? model.nativeReasoning && efforts.includes(model.nativeReasoning.ultraEffort) ? model.nativeReasoning : { multiAgentVersion: 'v2', ultraEffort: nativeEffort }
+    : null;
+  return { supportedReasoningEfforts: efforts, apiReasoningEfforts: efforts.filter((effort) => effort !== 'ultra'), defaultReasoningEffort: preferred && efforts.includes(preferred) ? preferred : efforts.includes('medium') ? 'medium' : efforts[0] ?? null, nativeReasoning };
 };
 
 export function createPreviewApi(): AppApi {
   const state: Dashboard = {
-    environment: { platform: 'Windows · 演示', codexInstalled: false, configPath: '%USERPROFILE%\\.codex\\config.toml', configExists: false, configValid: true, appVersion: '0.4.0', desktopMode: false },
+    environment: { platform: 'Windows · 演示', codexInstalled: false, configPath: '%USERPROFILE%\\.codex\\config.toml', configExists: false, configValid: true, appVersion: '0.5.0', desktopMode: false },
     profiles: [
       { id: 'demo-work', name: '主力渠道', baseUrl: 'https://api.example.com', resolvedBaseUrl: 'https://api.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '编程主力', enabled: true }, { id: 'example-pro', alias: '', enabled: true }, { id: 'example-fast', alias: '', enabled: false }], balanceConfig: { mode: 'auto' }, balance: { status: 'available', remaining: 128.50, unit: '站点计费单位', source: '示例数据', checkedAt: now() }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },
       { id: 'demo-lab', name: '备用渠道', baseUrl: 'https://gateway.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '', enabled: true }, { id: 'example-reasoning', alias: '', enabled: true }], balanceConfig: { mode: 'auto' }, balance: { status: 'unsupported', remaining: null, unit: '额度', source: '示例数据', checkedAt: now(), message: '该服务商不提供可识别的余额接口。' }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },
@@ -61,6 +65,11 @@ export function createPreviewApi(): AppApi {
       const original = input.id ? profile(input.id) : undefined;
       if (original && input.baseUrl.trim().replace(/\/$/, '') !== original.baseUrl) throw new Error('已保存渠道的 API 地址不能修改，请新建渠道。');
       const result: Profile = { ...original, models: input.models ?? original?.models ?? [], balanceConfig: input.balanceConfig ?? original?.balanceConfig ?? { mode: 'auto' }, id: input.id ?? crypto.randomUUID(), name: input.name.trim(), baseUrl: input.baseUrl.trim().replace(/\/$/, ''), model: input.model.trim(), keyStored: !!input.apiKey?.trim() || !!original?.keyStored, createdAt: original?.createdAt ?? now(), updatedAt: now(), revision: crypto.randomUUID() };
+      result.models = result.models.map((model) => {
+        const reasoning = demoReasoning(model);
+        if (model.reasoningEfforts?.includes('ultra') && !reasoning.nativeReasoning) throw new Error(`${model.id} 的 Ultra 需要至少一个低及以上的常规推理档位。`);
+        return { ...model, nativeReasoning: reasoning.nativeReasoning };
+      });
       const index = state.profiles.findIndex((p) => p.id === result.id);
       if (index < 0) state.profiles.push(result); else state.profiles[index] = result;
       state.gatewayApplied = false; revision++;

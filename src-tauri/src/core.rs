@@ -19,7 +19,7 @@ pub(crate) use configuration::{
 };
 pub(crate) use domain::validate_id;
 pub use domain::{
-    Backup, Change, ChangePreview, ChannelModel, Profile, ProfileInput, Settings, Store,
+    Backup, Change, ChangePreview, ChannelModel, NativeReasoning, Profile, ProfileInput, Settings, Store,
 };
 pub(crate) use filesystem::{atomic_write, config_text, read_config};
 pub use paths::AppPaths;

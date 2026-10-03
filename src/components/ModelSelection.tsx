@@ -5,12 +5,14 @@ import { Select, type SelectOption } from './Select';
 import { effortLabels as EFFORT_LABELS } from '../lib/models';
 
 const EFFORTS = Object.keys(EFFORT_LABELS);
+const API_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const PRESETS: SelectOption[] = [
   { value: 'auto', label: '自动识别', description: '使用模型对应的原生推理档位' },
   { value: 'off', label: '不支持推理强度' },
   { value: 'standard', label: '低 · 中 · 高' },
   { value: 'extended', label: '低 · 中 · 高 · 超高' },
   { value: 'maximum', label: '低 · 中 · 高 · 超高 · 最高' },
+  { value: 'native-ultra', label: '低 · 中 · 高 · 超高 · 最高 · Ultra', description: 'Ultra 允许 Codex 自动委派任务' },
   { value: 'custom', label: '自定义档位' },
 ];
 function presetFor(efforts: string[] | null | undefined): string {
@@ -19,6 +21,7 @@ function presetFor(efforts: string[] | null | undefined): string {
   if (efforts.join(',') === 'low,medium,high') return 'standard';
   if (efforts.join(',') === 'low,medium,high,xhigh') return 'extended';
   if (efforts.join(',') === 'low,medium,high,xhigh,max') return 'maximum';
+  if (efforts.join(',') === 'low,medium,high,xhigh,max,ultra') return 'native-ultra';
   return 'custom';
 }
 
@@ -27,19 +30,25 @@ function ModelOptions({ entry, catalogEntry, disabled, onPatch, onRemove }: { en
   const automaticAtOpen = useRef(entry.reasoningEfforts == null);
   const preset = custom ? 'custom' : presetFor(entry.reasoningEfforts);
   const available = entry.reasoningEfforts ?? (automaticAtOpen.current ? catalogEntry?.supportedReasoningEfforts : undefined) ?? [];
-  const effortOptions = available.map((effort) => ({ value: effort, label: EFFORT_LABELS[effort] ?? effort }));
+  const effortOptions = available.map((effort) => ({ value: effort, label: EFFORT_LABELS[effort] ?? effort, description: effort === 'ultra' ? '自动委派任务' : undefined }));
+  const apiEfforts = available.filter((effort) => API_EFFORTS.has(effort));
+  function patchEfforts(efforts: string[] | null) {
+    const changed = JSON.stringify(efforts) !== JSON.stringify(entry.reasoningEfforts ?? null);
+    onPatch({ reasoningEfforts: efforts, defaultReasoningEffort: efforts?.includes(entry.defaultReasoningEffort ?? '') ? entry.defaultReasoningEffort : null, ...(changed ? { nativeReasoning: null } : {}) });
+  }
   function changePreset(next: string) {
     setCustom(next === 'custom');
-    const efforts = next === 'auto' ? null : next === 'off' ? [] : next === 'standard' ? ['low', 'medium', 'high'] : next === 'extended' ? ['low', 'medium', 'high', 'xhigh'] : next === 'maximum' ? ['low', 'medium', 'high', 'xhigh', 'max'] : entry.reasoningEfforts ?? ['low', 'medium', 'high'];
-    onPatch({ reasoningEfforts: efforts, defaultReasoningEffort: efforts?.includes(entry.defaultReasoningEffort ?? '') ? entry.defaultReasoningEffort : null });
+    const efforts = next === 'auto' ? null : next === 'off' ? [] : next === 'standard' ? ['low', 'medium', 'high'] : next === 'extended' ? ['low', 'medium', 'high', 'xhigh'] : next === 'maximum' ? ['low', 'medium', 'high', 'xhigh', 'max'] : next === 'native-ultra' ? ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] : entry.reasoningEfforts ?? (available.length ? available : ['low', 'medium', 'high']);
+    patchEfforts(efforts);
   }
   return <div className="model-option-fields">
     <div className="editor-field"><label htmlFor={`model-alias-${entry.id}`}>显示备注</label><input id={`model-alias-${entry.id}`} aria-label={`${entry.id} 的显示备注`} value={entry.alias} placeholder="可选" maxLength={80} disabled={disabled} onChange={(event) => onPatch({ alias: event.target.value })}/></div>
     <div className="editor-field"><label htmlFor={`model-efforts-${entry.id}`}>推理档位</label><Select id={`model-efforts-${entry.id}`} ariaLabel={`${entry.id} 的推理档位`} value={preset} options={PRESETS} disabled={disabled} onChange={changePreset}/></div>
-    {custom && <fieldset className="effort-choices"><legend>支持的推理强度</legend>{EFFORTS.map((effort) => <label key={effort}><input type="checkbox" checked={entry.reasoningEfforts?.includes(effort) ?? false} disabled={disabled} onChange={(event) => {
+    {custom && <fieldset className="effort-choices"><legend>支持的推理强度</legend>{EFFORTS.map((effort) => <label key={effort}><input type="checkbox" checked={entry.reasoningEfforts?.includes(effort) ?? false} disabled={disabled || (effort === 'ultra' && !apiEfforts.length) || (available.includes('ultra') && apiEfforts.length === 1 && apiEfforts[0] === effort)} onChange={(event) => {
       const next = EFFORTS.filter((value) => value === effort ? event.target.checked : entry.reasoningEfforts?.includes(value));
-      onPatch({ reasoningEfforts: next, defaultReasoningEffort: next.includes(entry.defaultReasoningEffort ?? '') ? entry.defaultReasoningEffort : null });
+      patchEfforts(next);
     }}/><span>{EFFORT_LABELS[effort]}</span></label>)}</fieldset>}
+    {available.includes('ultra') && <p className="editor-hint">Ultra 会自动委派任务，需保留至少一个低及以上的常规档位。</p>}
     {effortOptions.length > 0 && <div className="editor-field"><label htmlFor={`model-default-effort-${entry.id}`}>默认强度</label><Select id={`model-default-effort-${entry.id}`} ariaLabel={`${entry.id} 的默认推理强度`} value={entry.defaultReasoningEffort ?? 'auto'} options={[{ value: 'auto', label: '模型默认' }, ...effortOptions]} disabled={disabled} onChange={(value) => onPatch({ defaultReasoningEffort: value === 'auto' ? null : value })}/></div>}
     <div className="model-option-footer"><span>{effortOptions.length ? '在 Codex 中切换推理强度' : preset === 'auto' ? automaticAtOpen.current ? '跟随模型默认' : '保存后识别原生档位' : '不提供推理强度选择'}</span><button type="button" className="text-button editor-delete" disabled={disabled} onClick={onRemove}><Trash2 size={14}/>移除模型</button></div>
   </div>;

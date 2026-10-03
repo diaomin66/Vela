@@ -26,6 +26,7 @@ pub fn load_store(paths: &AppPaths) -> Result<Store, String> {
                         enabled: true,
                         reasoning_efforts: None,
                         default_reasoning_effort: None,
+                        native_reasoning: None,
                     });
                 }
             }

@@ -350,7 +350,7 @@ try {
     assert.equal((await list.getByRole('option', { selected: true }).innerText()).trim(), effortLabels[channel.defaultEffort]);
     if (index === 0) {
       await page.evaluate(() => document.fonts.ready);
-      await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', 'vela-native-v4-models.png') });
+      await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', `vela-native-${version}-models.png`) });
     }
     await page.keyboard.press('Escape');
     await list.waitFor({ state: 'hidden' });
@@ -444,7 +444,7 @@ try {
   }
   assert.equal((await invoke('get_dashboard')).profiles.length, 0);
   assert.deepEqual(errors, []);
-  console.log('Vela v0.4 native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.');
+  console.log(`Vela ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
   console.log('Only temporary local services, synthetic channel keys, and an isolated CODEX_HOME were used.');
 } finally {
   if (page) {

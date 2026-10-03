@@ -35,15 +35,15 @@ const channels = [
   { id: 'channel-a', label: '渠道甲（gpt-5.4）', model: 'gpt-5.4', efforts: ['none', 'low', 'medium', 'high', 'xhigh'], defaultEffort: 'none' },
   { id: 'channel-b', label: '渠道乙（gpt-5-pro）', model: 'gpt-5-pro', efforts: ['high'], defaultEffort: 'high' },
   { id: 'channel-c', label: '渠道丙（chat-basic）', model: 'chat-basic', efforts: [], defaultEffort: null },
-  { id: 'channel-d', label: '渠道丁（gpt-6.1-sol）', model: 'gpt-6.1-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max'], defaultEffort: 'medium' },
-  { id: 'channel-e', label: '渠道戊（gpt-5.6-sol）', model: 'gpt-5.6-sol', efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'], defaultEffort: 'medium' },
-  { id: 'channel-f', label: '渠道己（gpt-6-astra）', model: 'gpt-6-astra', efforts: ['low', 'medium', 'high', 'xhigh', 'max'], defaultEffort: 'low' },
+  { id: 'channel-d', label: '渠道丁（gpt-6.1-sol）', model: 'gpt-6.1-sol', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], defaultEffort: 'medium', ultraEffort: 'xhigh' },
+  { id: 'channel-e', label: '渠道戊（gpt-5.6-sol）', model: 'gpt-5.6-sol', efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'], defaultEffort: 'medium', ultraEffort: 'max' },
+  { id: 'channel-f', label: '渠道己（gpt-6-astra）', model: 'gpt-6-astra', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'], defaultEffort: 'low', ultraEffort: 'xhigh' },
   { id: 'channel-g', label: '渠道庚（gpt-6-luna）', model: 'gpt-6-luna', efforts: ['none', 'low', 'medium', 'high', 'xhigh', 'max'], defaultEffort: 'medium' },
 ];
-// A max-capable catalog must be tested with >=0.138. Older clients reject the
-// unknown effort enum while loading the entire catalog; never silently trim it.
+// Test the complete native Ultra runtime against the exact supported release.
+// Accepting its enum alone does not prove proactive multi-agent support.
 const versionParts = report.version.match(/(\d+)\.(\d+)\.(\d+)/);
-assert.ok(versionParts && (Number(versionParts[1]) > 0 || Number(versionParts[2]) >= 138), 'This complete official-model fixture requires Codex >=0.138. Pass an isolated current official binary as argv[2] or VELA_CODEX_SMOKE_EXECUTABLE.');
+assert.ok(versionParts && (Number(versionParts[1]) > 0 || Number(versionParts[2]) >= 160), 'This complete native Ultra fixture requires Codex >=0.160. Pass an isolated official binary as argv[2] or VELA_CODEX_SMOKE_EXECUTABLE.');
 const instructions = await readFile(path.join(root, 'src-tauri/resources/official-codex-fallback-prompt.md'), 'utf8');
 const models = channels.map((channel, index) => ({
   slug: `vela-${createHash('sha256').update(`${channel.id}\0${channel.model}`).digest('hex')}`,
@@ -51,6 +51,8 @@ const models = channels.map((channel, index) => ({
   description: `${channel.id} · ${channel.model}`,
   default_reasoning_level: channel.defaultEffort,
   supported_reasoning_levels: channel.efforts.map(effort => ({ effort, description: `Fixture ${effort}` })),
+  multi_agent_version: channel.ultraEffort ? 'v2' : null,
+  multi_agent_reasoning_effort: channel.ultraEffort ?? null,
   default_reasoning_summary: 'none',
   shell_type: 'unified_exec',
   visibility: 'list',
@@ -84,7 +86,16 @@ const server = createServer(async (request, response) => {
     assert.equal(request.headers.authorization, `Bearer ${localToken}`);
     const payload = JSON.parse(source);
     assert.ok(models.some(model => model.slug === payload.model));
-    report.requests.push({ model: payload.model, stream: payload.stream, authenticated: true, reasoning: payload.reasoning ?? null, instructionsLength: typeof payload.instructions === 'string' ? payload.instructions.length : null });
+    const requestText = JSON.stringify({ instructions: payload.instructions, input: payload.input });
+    const toolsText = JSON.stringify(payload.tools ?? []);
+    report.requests.push({
+      model: payload.model, stream: payload.stream, authenticated: true,
+      reasoning: payload.reasoning ?? null,
+      instructionsLength: typeof payload.instructions === 'string' ? payload.instructions.length : null,
+      proactiveDelegation: /Proactive multi-agent delegation is active/i.test(requestText),
+      hasSpawnAgent: /"name":"(?:[^"\s]*[._])?spawn_agent"/.test(toolsText),
+      hasFollowupTask: /"name":"(?:[^"\s]*[._])?followup_task"/.test(toolsText),
+    });
     const id = `resp_${randomUUID().replaceAll('-', '')}`;
     const item = { id: `msg_${randomUUID().replaceAll('-', '')}`, type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'SMOKE_OK', annotations: [] }] };
     const completed = { id, object: 'response', model: payload.model, status: 'completed', output: [item], usage: { input_tokens: 10, output_tokens: 3, total_tokens: 13, input_tokens_details: { cached_tokens: 0 }, output_tokens_details: { reasoning_tokens: 0 } } };
@@ -166,7 +177,7 @@ async function completedTurn(id) {
 }
 
 try {
-  report.initialize = await rpc('initialize', { clientInfo: { name: 'vela_native_smoke', title: 'Vela native integration smoke', version: '0.3.0' }, capabilities: { experimentalApi: true } });
+  report.initialize = await rpc('initialize', { clientInfo: { name: 'vela_native_smoke', title: 'Vela native integration smoke', version: '0.5.0' }, capabilities: { experimentalApi: true } });
   child.stdin.write(`${JSON.stringify({ method: 'initialized', params: {} })}\n`);
   const available = await rpc('model/list', { limit: 100, includeHidden: true });
   report.models = available.data.map(model => ({ id: model.id, model: model.model, displayName: model.displayName, supportedReasoningEfforts: model.supportedReasoningEfforts, defaultReasoningEffort: model.defaultReasoningEffort }));
@@ -181,17 +192,23 @@ try {
   assert.equal(report.account.requiresOpenaiAuth, false);
   assert.equal(report.account.account, null);
   for (const [index, model] of models.entries()) {
-    const thread = await rpc('thread/start', { model: model.slug, modelProvider: 'Vela', cwd: workspace, approvalPolicy: 'never', sandbox: 'read-only', ephemeral: true });
     // First prove that no global fixed effort is needed. Then exercise every
     // effort exposed by the native picker, including the highest setting.
     for (const effort of [undefined, ...channels[index].efforts]) {
+      const thread = await rpc('thread/start', { model: model.slug, modelProvider: 'Vela', cwd: workspace, approvalPolicy: 'never', sandbox: 'read-only', ephemeral: true });
       const turn = await rpc('turn/start', { threadId: thread.thread.id, effort, input: [{ type: 'text', text: 'Reply SMOKE_OK without tools.' }] });
       const finished = await completedTurn(turn.turn.id);
       assert.equal(finished.status, 'completed', JSON.stringify(finished));
       const request = report.requests.at(-1);
       assert.equal(request.model, model.slug);
-      assert.equal(request.reasoning?.effort ?? null, effort ?? model.default_reasoning_level);
+      const expectedEffort = effort === 'ultra' ? channels[index].ultraEffort : effort ?? model.default_reasoning_level;
+      assert.equal(request.reasoning?.effort ?? null, expectedEffort);
       assert.equal(request.reasoning?.summary, undefined);
+      assert.equal(request.proactiveDelegation, effort === 'ultra', `Unexpected delegation mode for ${channels[index].model}/${effort ?? 'default'}`);
+      if (effort === 'ultra') {
+        assert.ok(request.hasSpawnAgent, 'Ultra must expose native spawn_agent');
+        assert.ok(request.hasFollowupTask, 'Ultra must use the native v2 agent toolset');
+      }
     }
   }
   assert.equal(report.requests.length, channels.reduce((count, channel) => count + channel.efforts.length + 1, 0));

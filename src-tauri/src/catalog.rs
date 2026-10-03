@@ -1,6 +1,6 @@
 //! The local model file follows openai/codex ModelInfo + ModelsResponse.
 //! Source checked: codex-rs/protocol/src/openai_models.rs (2026-10-03).
-use crate::core::{self, AppPaths, Backup, Change, ChangePreview, Profile, Store};
+use crate::core::{self, AppPaths, Backup, Change, ChangePreview, NativeReasoning, Profile, Store};
 use crate::gateway::{GatewayCatalog, GatewayRoute};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -19,7 +19,9 @@ pub struct ModelCatalogEntry {
     pub display_name: String,
     pub enabled: bool,
     pub supported_reasoning_efforts: Vec<String>,
+    pub api_reasoning_efforts: Vec<String>,
     pub default_reasoning_effort: Option<String>,
+    pub native_reasoning: Option<NativeReasoning>,
 }
 
 pub fn entries(profiles: &[Profile]) -> Vec<ModelCatalogEntry> {
@@ -45,7 +47,9 @@ pub fn entries(profiles: &[Profile]) -> Vec<ModelCatalogEntry> {
                     display_name: format!("{}（{}）", name, model.id),
                     enabled: model.enabled,
                     supported_reasoning_efforts: reasoning.efforts,
+                    api_reasoning_efforts: crate::reasoning::api_efforts(model),
                     default_reasoning_effort: reasoning.default,
+                    native_reasoning: reasoning.native,
                 }
             })
         })
@@ -88,6 +92,8 @@ pub fn model_json(store: &Store) -> Value {
     let models:Vec<Value>=entries(&store.profiles).into_iter().filter(|e|e.enabled).enumerate().map(|(i,e)|json!({
         "slug":e.route_id,"display_name":e.display_name,"description":format!("{} · {}",e.channel_name,e.model_id),
         "default_reasoning_level":e.default_reasoning_effort,"supported_reasoning_levels":crate::reasoning::presets(&e.supported_reasoning_efforts),"shell_type":"unified_exec","visibility":"list","supported_in_api":true,"priority":i,
+        "multi_agent_version":e.native_reasoning.as_ref().map(|native|native.multi_agent_version.as_str()),
+        "multi_agent_reasoning_effort":e.native_reasoning.as_ref().map(|native|native.ultra_effort.as_str()),
         "availability_nux":null,"upgrade":null,"support_verbosity":false,"default_verbosity":null,"apply_patch_tool_type":null,
         "truncation_policy":{"mode":"bytes","limit":10000},"experimental_supported_tools":[],"input_modalities":["text"],
         // In 0.137 the legacy summaries flag gates the entire reasoning object.
@@ -540,11 +546,13 @@ pub fn restored_store(
                 .find(|e| e.profile_id == profile.id && e.model_id == model.id);
             let enabled = entry.is_some_and(|e| ids.contains(&e.route_id));
             model.enabled = enabled;
-            if let Some((efforts, default)) =
+            if let Some(historical) =
                 entry.and_then(|entry| historical_reasoning.get(&entry.route_id))
             {
-                model.reasoning_efforts = Some(efforts.clone());
-                model.default_reasoning_effort = default.clone();
+                model.reasoning_efforts = Some(historical.efforts.clone());
+                model.default_reasoning_effort = historical.default.clone();
+                model.native_reasoning = historical.native.clone();
+                crate::reasoning::normalize_model(model)?;
             }
         }
         if profile.models.iter().any(|m| m.enabled) {
@@ -554,7 +562,14 @@ pub fn restored_store(
     Ok(Some(restored))
 }
 
-fn historical_capabilities(model: &Value) -> Result<(Vec<String>, Option<String>), String> {
+#[derive(Debug, PartialEq, Eq)]
+struct HistoricalReasoning {
+    efforts: Vec<String>,
+    default: Option<String>,
+    native: Option<NativeReasoning>,
+}
+
+fn historical_capabilities(model: &Value) -> Result<HistoricalReasoning, String> {
     let raw = model
         .get("supported_reasoning_levels")
         .and_then(Value::as_array)
@@ -575,7 +590,38 @@ fn historical_capabilities(model: &Value) -> Result<(Vec<String>, Option<String>
         Some(Value::String(value)) if efforts.contains(value) => Some(value.clone()),
         _ => return Err("历史模型的默认推理档位无效。".into()),
     };
-    Ok((efforts, default))
+    let native = if efforts.iter().any(|effort| effort == "ultra") {
+        let version = model
+            .get("multi_agent_version")
+            .and_then(Value::as_str)
+            .filter(|value| *value == "v2")
+            .ok_or("历史 Ultra 模型缺少有效的多代理版本。")?;
+        let wire = match model.get("multi_agent_reasoning_effort") {
+            Some(Value::String(value))
+                if efforts.contains(value)
+                    && ["low", "medium", "high", "xhigh", "max"].contains(&value.as_str()) =>
+            {
+                value.clone()
+            }
+            None | Some(Value::Null) => ["max", "xhigh", "high", "medium", "low"]
+                .into_iter()
+                .find(|value| efforts.iter().any(|effort| effort == value))
+                .ok_or("历史 Ultra 模型缺少可用的底层推理档位。")?
+                .to_owned(),
+            _ => return Err("历史 Ultra 模型的底层推理档位无效。".into()),
+        };
+        Some(NativeReasoning {
+            multi_agent_version: version.into(),
+            ultra_effort: wire,
+        })
+    } else {
+        None
+    };
+    Ok(HistoricalReasoning {
+        efforts,
+        default,
+        native,
+    })
 }
 
 #[cfg(test)]
@@ -793,11 +839,120 @@ mod tests {
                 &json!({"supported_reasoning_levels":[],"default_reasoning_level":null})
             )
             .unwrap(),
-            (vec![], None)
+            HistoricalReasoning {
+                efforts: vec![],
+                default: None,
+                native: None
+            }
         );
-        assert_eq!(historical_capabilities(&json!({"supported_reasoning_levels":[{"effort":"low"},{"effort":"high"}],"default_reasoning_level":"high"})).unwrap(), (vec!["low".into(),"high".into()],Some("high".into())));
+        assert_eq!(historical_capabilities(&json!({"supported_reasoning_levels":[{"effort":"low"},{"effort":"high"}],"default_reasoning_level":"high"})).unwrap(), HistoricalReasoning { efforts: vec!["low".into(),"high".into()], default: Some("high".into()), native: None });
         assert!(historical_capabilities(&json!({"supported_reasoning_levels":[{"effort":"high"}],"default_reasoning_level":"xhigh"})).is_err());
         assert!(historical_capabilities(&json!({"supported_reasoning_levels":[{"effort":"unsupported"}],"default_reasoning_level":null})).is_err());
+    }
+
+    #[test]
+    fn native_ultra_catalog_emits_runtime_and_model_specific_wire_effort() {
+        let mut store = sample();
+        store.profiles[0].models[0].id = "gpt-6-astra".into();
+        let catalog = model_json(&store);
+        let model = &catalog["models"][0];
+        assert_eq!(model["multi_agent_version"], "v2");
+        assert_eq!(model["multi_agent_reasoning_effort"], "xhigh");
+        assert!(model["supported_reasoning_levels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|preset| preset["effort"] == "ultra"));
+        assert_eq!(model["default_reasoning_level"], "low");
+        let directory = tempfile::tempdir().unwrap();
+        let paths = AppPaths {
+            data: directory.path().join("data"),
+            config: directory.path().join("config"),
+            helper: directory.path().join("helper"),
+        };
+        write_model_catalog(&paths, &store).unwrap();
+        let mut config = render(
+            "[agents]\nenabled=false\n",
+            &paths,
+            &store,
+            &entries(&store.profiles)[0].route_id,
+        )
+        .unwrap()
+        .parse::<DocumentMut>()
+        .unwrap();
+        config["model_reasoning_effort"] = value("ultra");
+        assert!(applied(&paths, &store, &config.to_string()));
+        assert_eq!(config["agents"]["enabled"].as_bool(), Some(false));
+        store.profiles[0].models[0].id = "gpt-6-luna".into();
+        assert!(model_json(&store)["models"][0]["multi_agent_version"].is_null());
+    }
+
+    #[test]
+    fn historical_ultra_keeps_wire_target_and_old_catalogs_do_not_gain_ultra() {
+        let mut store = sample();
+        let model = &mut store.profiles[0].models[0];
+        model.id = "gpt-6-astra".into();
+        let saved = json!({
+            "supported_reasoning_levels":[{"effort":"high"},{"effort":"xhigh"},{"effort":"ultra"}],
+            "default_reasoning_level":"ultra",
+            "multi_agent_version":"v2",
+            "multi_agent_reasoning_effort":"high"
+        });
+        let historical = historical_capabilities(&saved).unwrap();
+        model.reasoning_efforts = Some(historical.efforts);
+        model.default_reasoning_effort = historical.default;
+        model.native_reasoning = historical.native;
+        crate::reasoning::normalize_model(model).unwrap();
+        let regenerated = model_json(&store);
+        assert_eq!(
+            regenerated["models"][0]["multi_agent_reasoning_effort"],
+            "high"
+        );
+        assert_eq!(regenerated["models"][0]["default_reasoning_level"], "ultra");
+
+        let old =
+            historical_capabilities(&json!({"supported_reasoning_levels":[{"effort":"high"}]}))
+                .unwrap();
+        let model = &mut store.profiles[0].models[0];
+        model.reasoning_efforts = Some(old.efforts);
+        model.default_reasoning_effort = old.default;
+        model.native_reasoning = old.native;
+        crate::reasoning::normalize_model(model).unwrap();
+        assert_eq!(
+            entries(&store.profiles)[0].supported_reasoning_efforts,
+            ["high"]
+        );
+        assert!(model_json(&store)["models"][0]["multi_agent_version"].is_null());
+    }
+
+    #[test]
+    fn historical_ultra_rejects_invalid_runtime_or_missing_underlying_effort() {
+        let valid = json!({
+            "supported_reasoning_levels":[{"effort":"high"},{"effort":"xhigh"},{"effort":"ultra"}],
+            "default_reasoning_level":"ultra",
+            "multi_agent_version":"v2"
+        });
+        assert_eq!(
+            historical_capabilities(&valid)
+                .unwrap()
+                .native
+                .unwrap()
+                .ultra_effort,
+            "xhigh"
+        );
+        for invalid in [json!("ultra"), json!("max"), json!(42)] {
+            let mut modified = valid.clone();
+            modified["multi_agent_reasoning_effort"] = invalid;
+            assert!(historical_capabilities(&modified).is_err());
+        }
+        for invalid in [Value::Null, json!("v1"), json!(42)] {
+            let mut modified = valid.clone();
+            modified["multi_agent_version"] = invalid;
+            assert!(historical_capabilities(&modified).is_err());
+        }
+        let mut modified = valid;
+        modified["supported_reasoning_levels"] = json!([{"effort":"ultra"}]);
+        assert!(historical_capabilities(&modified).is_err());
     }
 
     fn disjoint_reasoning_models() -> Store {

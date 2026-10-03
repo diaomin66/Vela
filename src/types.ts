@@ -1,11 +1,12 @@
-export type View = 'connections' | 'models' | 'diagnostics' | 'recovery';
+export type View = 'connections' | 'models' | 'diagnostics' | 'recovery' | 'evaluations';
 export type Status = 'passed' | 'warning' | 'error' | 'info';
-export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-export interface ChannelModel { id: string; alias: string; enabled: boolean; reasoningEfforts?: string[] | null; defaultReasoningEffort?: string | null }
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
+export interface NativeReasoning { multiAgentVersion: string; ultraEffort: string }
+export interface ChannelModel { id: string; alias: string; enabled: boolean; reasoningEfforts?: string[] | null; defaultReasoningEffort?: string | null; nativeReasoning?: NativeReasoning | null }
 export interface BalanceConfig { mode: 'auto' | 'disabled' | 'custom'; path?: string; valuePath?: string; unit?: string; multiplier?: number }
 export interface BalanceSnapshot { status: string; remaining?: number | null; unit: string; source: string; checkedAt: string; message?: string | null }
 export interface Settings { providerName: string; gatewayPort: number; autoRefresh: boolean; refreshMinutes: number }
-export interface CatalogEntry { routeId: string; profileId: string; channelName: string; modelId: string; displayName: string; enabled: boolean; supportedReasoningEfforts: string[]; defaultReasoningEffort: string | null }
+export interface CatalogEntry { routeId: string; profileId: string; channelName: string; modelId: string; displayName: string; enabled: boolean; supportedReasoningEfforts: string[]; apiReasoningEfforts?: string[]; defaultReasoningEffort: string | null; nativeReasoning?: NativeReasoning | null }
 export interface Profile {
   id: string;
   name: string;

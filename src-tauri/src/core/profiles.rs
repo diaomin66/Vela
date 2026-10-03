@@ -94,6 +94,7 @@ pub fn save_profile(paths: &AppPaths, mut input: ProfileInput) -> Result<Profile
             enabled: true,
             reasoning_efforts: None,
             default_reasoning_effort: None,
+            native_reasoning: None,
         });
     }
     let mut seen = std::collections::HashSet::new();
@@ -240,6 +241,7 @@ pub fn record_discovery(
                     enabled: false,
                     reasoning_efforts: None,
                     default_reasoning_effort: None,
+                    native_reasoning: None,
                 });
             }
         }

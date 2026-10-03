@@ -1,6 +1,6 @@
 # 官方模型推理能力核查
 
-核查日期：**2026-10-03**。运行时数据位于 `src-tauri/resources/model-capabilities.json`；本文记录所查模型、API 支持档位与默认值，以及用于原生选择器的默认值来源。抓取的官网页面及官方源码存放于本地验收目录 `artifacts/official-model-capabilities-2026-10-03/`，不包含账号或密钥。
+核查日期：**2026-10-03**。运行时数据位于 `src-tauri/resources/model-capabilities.json`；本文记录所查模型、API 支持档位与默认值，以及原生 Ultra 的客户端语义。抓取的官网页面及官方源码存放于本地验收目录 `artifacts/official-model-capabilities-2026-10-03/`、`artifacts/official-ultra-0.160/`，不包含账号或密钥。
 
 ## 本次纠正
 
@@ -28,7 +28,37 @@
 - [Codex 0.160 的努力值转换](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs) 说明 Ultra 的客户端语义。
 - [公开 Responses API 定义](https://developers.openai.com/api/reference/resources/responses/methods/create) 和[官方 Python SDK](https://github.com/openai/openai-python/blob/main/src/openai/types/shared/reasoning.py) 列出 API effort 到 max，并要求按模型核对支持值。
 
-使用含 max 的统一目录至少需要 Codex **0.138**；0.143 以后有明确枚举，验收优先使用当前正式版 **0.160.0**（GitHub Release 发布于 2026-10-01）。本次没有修改用户全局安装的 CLI。
+使用含 max 的统一目录至少需要 Codex **0.138**；0.143 以后有明确枚举。Vela 的完整 Ultra 接入以正式版 **0.160.0**（GitHub Release 发布于 2026-10-01）的原生运行时为验收基准；旧版本能读取 Ultra 枚举不代表具有同样的多代理行为。本次没有修改用户全局安装的 CLI。
+
+## 原生 Ultra
+
+Vela 0.5.0 在原生模型目录中分别声明 `supported_reasoning_levels` 的 Ultra、`multi_agent_version = "v2"` 和 `multi_agent_reasoning_effort`。Codex 在用户选中 Ultra 后启用主动多代理提示，并在构建 Responses 请求时将 Ultra 转换为该模型的实际 API 强度。Vela 网关不自行改写该强度。依据为[官方 0.160 模型目录](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json)、[强度转换](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs)、[客户端请求构建](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/client.rs)和[多代理模式选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/multi_agents.rs)。
+
+| 自动开启原生 Ultra 的精确 ID | Ultra 对应的 API effort | 依据 |
+| --- | --- | --- |
+| `gpt-6-astra` | `xhigh` | 官方模型目录显式声明 |
+| `gpt-6.1-sol` | `xhigh` | 官方模型目录显式声明 |
+| `gpt-6-sol` | `max` | 官方客户端的 max 回退规则 |
+| `gpt-5.6-sol`、官方别名 `gpt-5.6` | `max` | 官方客户端的 max 回退规则 |
+| `gpt-5.6-terra` | `max` | 官方客户端的 max 回退规则 |
+| `gpt-daybreak-blue-latest` | `max` | 官方客户端的 max 回退规则 |
+| `gpt-daybreak-red-latest` | `max` | 官方客户端精确型号声明，API 页面未完整声明档位 |
+
+GPT-6 Luna、GPT-5.6 Luna、GPT-5.5 等未在该精确目录中开放 Ultra，不自动增加；不能仅凭型号系列或 `multi_agent_version` 推断。原生 Ultra 也不改变官网已确认的其他 API 档位和默认值。
+
+Daybreak Red 的公开 API 档位仍记为未证实。其 `nativeEfforts` 单独保存官方客户端明确列出的 low/medium/high/xhigh/max，原生默认 medium；`nativeUltra` 保存编排映射。直接调用 API 的测试不会借用这些原生声明来认定服务端能力。
+
+手动能力列表是显式覆盖：关闭推理或只选择部分档位时不自动增加 Ultra。手动开启 Ultra 必须同时选择至少一个 low/medium/high/xhigh/max；先使用仍在选择范围内的官方 Ultra 强度，否则使用已选范围内最高的有效强度。只提供 none/minimal/Ultra 的组合会被拒绝。手动选择 Ultra 为默认值时仍遵循同样的转换。
+
+历史恢复将 Ultra 的实际强度和 v2 版本保存为 `nativeReasoning: { multiAgentVersion, ultraEffort }`，防止新版本注册表改变旧快照语义。编辑推理范围时重新计算映射；仅更换默认值保留历史映射。不含 Ultra 的旧目录恢复后仍按旧目录显示。
+
+完整多代理运行时在新建任务时确定；已存在的旧任务可能沿用旧运行时，应用目录后应重新打开 Codex 并新建任务。用户显式设置的 `[agents] enabled = false` 保持有效，Vela 不覆盖该偏好。依据见[官方运行时选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/mod.rs)和[配置优先级](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/config/mod.rs)。
+
+能力评测直接调用渠道 API，只接受该模型确认的具体 API 档位；不选择档位则完全省略 `reasoning`，交由服务端处理默认值。`ultra` 不会作为 API 参数发送，也不会静默变成普通档位。
+
+### 验收
+
+`scripts/official-models-smoke.mjs` 使用独立 `CODEX_HOME`、本地凭据助手和本地 Responses 服务驱动官方 Codex 0.160.0 app-server。2026-10-03 验收覆盖 7 个模型、38 次请求，验证原生模型菜单、各档位与默认值、Ultra 实际映射，以及 Ultra 请求中的主动委派提示、`spawn_agent` 与 v2 `followup_task` 工具；普通档位没有主动委派提示。所有请求仅发往本机，不使用真实 Key，不产生远端调用。报告为 `artifacts/official-codex-smoke-1791015517867/report.json`。此脚本验证与 Vela 同构的目录和 provider 配置；Vela 自身目录生成及历史恢复另由 Rust 单元测试覆盖。
 
 ## 两种默认值必须分开
 
@@ -91,7 +121,7 @@
 | `gpt-5.2-chat-latest` | 未找到完整声明 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2-chat-latest>) |
 | `gpt-5.3-chat-latest` | 未找到完整声明 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.3-chat-latest>) |
 | `gpt-5.6-cyber` | 未找到完整声明 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.6-cyber>) |
-| `gpt-daybreak-red-latest` | 未找到完整声明 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest>) |
+| `gpt-daybreak-red-latest` | 未找到完整声明 | 未声明 / 不适用 | `medium` · 精确型号的官方原生目录，另有 Ultra | [模型页](<https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest>) [原生目录](<https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json>) |
 | `gpt-daybreak-blue-latest` | `none`, `low`, `medium`, `high`, `xhigh`, `max` | `medium` | `medium` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-daybreak-blue-latest>) [依据1](<https://developers.openai.com/api/docs/models/gpt-5.6-sol>) |
 | `gpt-4.1`<br>`gpt-4.1-2025-04-14` | 无可配置推理档位 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-4.1>) |
 | `gpt-4.1-mini`<br>`gpt-4.1-mini-2025-04-14` | 无可配置推理档位 | 未声明 / 不适用 | 不生成可选档位 | [模型页](<https://developers.openai.com/api/docs/models/gpt-4.1-mini>) |
@@ -103,7 +133,7 @@
 
 ## 未证实的范围与来源限制
 
-`o1-mini`、`o1-preview`、`o1-pro`、`o3-pro`、两个 Deep Research 型号、部分 Chat Latest 型号、`codex-mini-latest` 和 Cyber/Daybreak Red 页面没有列出完整的可配置 effort 集合。不能因为“支持 reasoning tokens”就断言支持某三个可选档位，也不能把 pro 变体自动视作基础型号。表中保留记录、来源和“未找到完整声明”，自动模式不虚构其能力。早期 o1/o3/o3-mini/o4-mini 的基础型号则由[官方历史 API SDK](https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py)、[默认值定义](https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py)和[GPT-5.2 指南对 o3 的明确对比](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2)交叉佐证。
+`o1-mini`、`o1-preview`、`o1-pro`、`o3-pro`、两个 Deep Research 型号、部分 Chat Latest 型号、`codex-mini-latest` 和 Cyber/Daybreak Red 页面没有列出完整的可配置 effort 集合。不能因为“支持 reasoning tokens”就断言支持某三个可选档位，也不能把 pro 变体自动视作基础型号。表中保留记录、来源和“未找到完整声明”，不虚构 API 能力。Daybreak Red 另有精确型号的官方原生目录声明，按上文分开保存。早期 o1/o3/o3-mini/o4-mini 的基础型号则由[官方历史 API SDK](https://github.com/openai/openai-python/blob/v1.93.0/src/openai/types/shared/reasoning.py)、[默认值定义](https://github.com/openai/openai-python/blob/v2.8.0/src/openai/types/shared/reasoning.py)和[GPT-5.2 指南对 o3 的明确对比](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.2)交叉佐证。
 
 `gpt-5.1-codex`、`gpt-5.1-codex-max`、`gpt-5.1-codex-mini` 与 `gpt-5-codex` 的模型页未逐项公开 effort；仅用[官方 0.70 精确型号预设](https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs)补充可选集合，API 默认保持未声明。这种补充不覆盖有明确 API 页面声明的型号。
 

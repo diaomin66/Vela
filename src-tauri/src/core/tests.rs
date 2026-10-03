@@ -62,6 +62,7 @@ fn discovery_preserves_manual_selection_and_never_enables_new_models() {
         enabled: true,
         reasoning_efforts: None,
         default_reasoning_effort: None,
+        native_reasoning: None,
     }];
     save_store(
         &paths,

@@ -44,6 +44,16 @@ pub struct ChannelModel {
     pub reasoning_efforts: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_reasoning_effort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_reasoning: Option<NativeReasoning>,
+}
+
+/// Native picker semantics retained with restored model catalogs.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeReasoning {
+    pub multi_agent_version: String,
+    pub ultra_effort: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

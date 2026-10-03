@@ -1,6 +1,6 @@
 {
   "checkedAt": "2026-10-03",
-  "policy": "Exact model IDs and exact snapshots only. API model pages take precedence over client picker presets. Null efforts means unverified, not proof of no support. Null API default means not documented, not none. Native defaults are chosen separately to keep the native picker on a valid effort.",
+  "policy": "Exact model IDs and exact snapshots only. API model pages take precedence over client picker presets. Null efforts means unverified, not proof of no support. Null API default means not documented, not none. Native defaults are chosen separately to keep the native picker on a valid effort. nativeEfforts and nativeUltra describe exact official Codex picker/runtime capabilities, never additional verified API efforts.",
   "models": [
     {
       "ids": [
@@ -380,9 +380,14 @@
       "nativeDefault": null,
       "nativeDefaultSource": null,
       "sources": [
-        "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+        "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": "The API model page explicitly names gpt-5.6 as an alias. Pro uses reasoning.mode, not another model slug."
+      "note": "The API model page explicitly names gpt-5.6 as an alias. Pro uses reasoning.mode, not another model slug.",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "max"
+      }
     },
     {
       "ids": [
@@ -400,9 +405,14 @@
       "nativeDefault": null,
       "nativeDefaultSource": null,
       "sources": [
-        "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+        "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": ""
+      "note": "",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "max"
+      }
     },
     {
       "ids": [
@@ -440,9 +450,14 @@
       "nativeDefault": null,
       "nativeDefaultSource": null,
       "sources": [
-        "https://developers.openai.com/api/docs/models/gpt-6-sol"
+        "https://developers.openai.com/api/docs/models/gpt-6-sol",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": ""
+      "note": "",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "max"
+      }
     },
     {
       "ids": [
@@ -479,9 +494,14 @@
       "nativeDefault": null,
       "nativeDefaultSource": null,
       "sources": [
-        "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+        "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": ""
+      "note": "",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "xhigh"
+      }
     },
     {
       "ids": [
@@ -501,7 +521,11 @@
         "https://developers.openai.com/api/docs/models/gpt-6-astra",
         "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": "The API confirms the effort set; the exact client preset uses low. Ultra is a client orchestration choice, not a public API effort."
+      "note": "The API confirms the effort set; the exact client preset uses low. Ultra is a client orchestration choice, not a public API effort.",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "xhigh"
+      }
     },
     {
       "ids": [
@@ -755,12 +779,24 @@
       ],
       "efforts": null,
       "apiDefault": null,
-      "nativeDefault": null,
-      "nativeDefaultSource": null,
+      "nativeDefault": "medium",
+      "nativeDefaultSource": "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json",
       "sources": [
-        "https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest"
+        "https://developers.openai.com/api/docs/models/gpt-daybreak-red-latest",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": "No complete public API effort/default declaration was found for this exact model. Do not infer from a similarly named model."
+      "note": "Public API effort set remains unverified; the exact official client model advertises native efforts plus Ultra.",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "max"
+      },
+      "nativeEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "ids": [
@@ -779,9 +815,14 @@
       "nativeDefaultSource": null,
       "sources": [
         "https://developers.openai.com/api/docs/models/gpt-daybreak-blue-latest",
-        "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+        "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json"
       ],
-      "note": "The model page explicitly lists gpt-5.6-sol as this alias's current snapshot. This evidence may change when the alias moves."
+      "note": "The model page explicitly lists gpt-5.6-sol as this alias's current snapshot. This evidence may change when the alias moves.",
+      "nativeUltra": {
+        "multiAgentVersion": "v2",
+        "ultraEffort": "max"
+      }
     },
     {
       "ids": [

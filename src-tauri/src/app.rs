@@ -8,6 +8,7 @@ mod metadata;
 mod runtime;
 mod state;
 mod updater;
+mod evaluation;
 
 use crate::core::AppPaths;
 pub use credentials::run_credential_mode;
@@ -28,11 +29,13 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::UpdateState::new(paths.clone()))
+        .manage(crate::evaluation::EvaluationState::new(paths.clone()))
         .manage(AppState::new(paths))
         .setup(|app| {
             desktop::setup(app)?;
             metadata::start(app.handle().clone());
             updater::start(app.handle().clone());
+            evaluation::start_scheduler(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -63,7 +66,13 @@ pub fn run() {
             updater::check_for_updates,
             updater::download_update,
             updater::install_update,
-            updater::set_update_preferences
+            updater::set_update_preferences,
+            evaluation::get_evaluation_dashboard,
+            evaluation::save_evaluation_plan,
+            evaluation::start_evaluation,
+            evaluation::cancel_evaluation,
+            evaluation::get_evaluation_run,
+            evaluation::export_evaluation_run
         ])
         .run(context)
         .expect("Unable to launch Vela");

@@ -5,6 +5,7 @@ pub mod core;
 pub mod diagnostics;
 pub mod discovery;
 pub mod gateway;
+pub mod evaluation;
 mod reasoning;
 mod security;
 
