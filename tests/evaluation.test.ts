@@ -4,7 +4,7 @@ import { requestBudget, targetKey, validateEvaluationPlan } from '../src/lib/eva
 import { createPreviewEvaluation } from '../src/lib/evaluation/preview';
 import type { EvaluationApi, EvaluationDashboard, EvaluationPlan } from '../src/lib/evaluation/types';
 
-const plan = (): EvaluationPlan => ({ targets: [{ profileId: 'a', modelId: 'shared', reasoningEffort: 'high' }], cases: ['candy', 'pelican', 'judgment'], judge: null, scheduleEnabled: false, intervalHours: 24 });
+const plan = (): EvaluationPlan => ({ targets: [{ profileId: 'a', modelId: 'shared', reasoningEffort: 'high' }], cases: ['candy', 'pelican', 'judgment'], judge: null, scheduleEnabled: false, intervalHours: 24, requestTimeoutSeconds: 300 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('evaluation plan boundaries', () => {
@@ -24,6 +24,10 @@ describe('evaluation plan boundaries', () => {
     expect(validateEvaluationPlan(value)).toMatch('Ultra');
     value.targets[0].reasoningEffort = null; value.intervalHours = 0;
     expect(validateEvaluationPlan(value)).toMatch('1–168');
+  });
+  it('accepts custom whole-second request timeouts within the supported limits', () => {
+    for (const requestTimeoutSeconds of [30, 125, 300, 3600]) expect(validateEvaluationPlan({ ...plan(), requestTimeoutSeconds })).toBeNull();
+    for (const requestTimeoutSeconds of [0, 29, 3601, 30.5, NaN, Infinity]) expect(validateEvaluationPlan({ ...plan(), requestTimeoutSeconds })).toMatch('30–3600');
   });
 });
 
@@ -59,6 +63,22 @@ describe('evaluation demo isolation', () => {
     expect(result.results.find((item) => item.caseId === 'pelican')!.safeSvg).toContain('<svg');
     expect(JSON.parse((await api.export(id)).content).results).toHaveLength(3);
     expect((await api.dashboard()).plan.targets).toHaveLength(0);
+  });
+  it('defaults to five minutes and snapshots custom timeouts independently from the scheduled plan', async () => {
+    let now = 0;
+    const api = createPreviewEvaluation(() => now);
+    expect((await api.dashboard()).plan.requestTimeoutSeconds).toBe(300);
+    const saved = { ...plan(), scheduleEnabled: true, requestTimeoutSeconds: 900 };
+    await api.save(saved);
+    const input = { ...saved, requestTimeoutSeconds: 125 };
+    const id = (await api.start(input)).active!.id;
+    input.requestTimeoutSeconds = 60;
+    await api.save({ ...saved, requestTimeoutSeconds: 1800 });
+    now += 3000;
+    expect((await api.run(id)).plan.requestTimeoutSeconds).toBe(125);
+    expect(JSON.parse((await api.export(id)).content).plan.requestTimeoutSeconds).toBe(125);
+    expect((await api.dashboard()).plan.requestTimeoutSeconds).toBe(1800);
+    expect((await api.dashboard()).plan.scheduleEnabled).toBe(true);
   });
 });
 

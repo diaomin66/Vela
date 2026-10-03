@@ -42,6 +42,9 @@ fn validate_shape(plan: &EvaluationPlan, required: bool) -> Result<(), String> {
     if !(1..=168).contains(&plan.interval_hours) {
         return Err("定时间隔需为 1–168 小时。".into());
     }
+    if !(30..=3600).contains(&plan.request_timeout_seconds) {
+        return Err("每次请求超时需为 30–3600 秒。".into());
+    }
     let mut seen = HashSet::new();
     for target in plan.targets.iter().chain(plan.judge.iter()) {
         core::validate_id(&target.profile_id)?;

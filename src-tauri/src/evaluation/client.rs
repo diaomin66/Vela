@@ -7,7 +7,7 @@ use zeroize::Zeroizing;
 
 pub(super) const MAX_OUTPUT_BYTES: usize = 24 * 1024;
 const MAX_RESPONSE_BYTES: usize = 768 * 1024;
-const TIMEOUT: Duration = Duration::from_secs(120);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub(super) struct PreparedTarget {
     pub target: super::types::EvaluationTarget,
@@ -58,8 +58,8 @@ pub(super) fn redact(value: &str, key: &str, limit: usize) -> String {
 pub(super) fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(15))
-        .timeout(TIMEOUT)
+        .retry(reqwest::retry::never())
+        .connect_timeout(CONNECT_TIMEOUT)
         .build()
         .map_err(|_| "无法初始化评测网络请求。".into())
 }
@@ -67,6 +67,7 @@ pub(super) async fn request(
     client: &reqwest::Client,
     target: &PreparedTarget,
     prompt: &str,
+    timeout: Duration,
     mut cancel: watch::Receiver<bool>,
 ) -> Result<Answer, RequestError> {
     if *cancel.borrow() {
@@ -82,8 +83,8 @@ pub(super) async fn request(
     let response = tokio::select! {
         biased;
         _ = cancel.changed() => return Err(RequestError::cancelled()),
-        result = client.post(format!("{endpoint}/responses")).bearer_auth(target.key.as_str()).json(&body).send() =>
-            result.map_err(|_| RequestError::new("请求未完成或已超时，未自动重试。"))?
+        result = client.post(format!("{endpoint}/responses")).bearer_auth(target.key.as_str()).json(&body).timeout(timeout).send() =>
+            result.map_err(|error| transport_error(&error, timeout, false))?
     };
     let status = response.status();
     if !status.is_success() {
@@ -111,7 +112,7 @@ pub(super) async fn request(
         let Some(chunk) = chunk else {
             break;
         };
-        let chunk = chunk.map_err(|_| RequestError::new("评测响应接收中断，未自动重试。"))?;
+        let chunk = chunk.map_err(|error| transport_error(&error, timeout, true))?;
         if bytes.len() + chunk.len() > MAX_RESPONSE_BYTES {
             return Err(RequestError::new("评测响应超过大小限制。"));
         }
@@ -168,5 +169,22 @@ pub(super) async fn request(
         output_tokens: payload
             .pointer("/usage/output_tokens")
             .and_then(Value::as_u64),
+    })
+}
+
+fn transport_error(error: &reqwest::Error, timeout: Duration, receiving: bool) -> RequestError {
+    if error.is_timeout() {
+        let limit = timeout.as_secs_f64();
+        let message = if error.is_connect() {
+            format!("连接超时（连接上限 15 秒；本次请求上限 {limit} 秒），未自动重试。")
+        } else {
+            format!("评测请求超时（本次上限 {limit} 秒），未自动重试。")
+        };
+        return RequestError::new(&message);
+    }
+    RequestError::new(if receiving {
+        "评测响应接收中断，未自动重试。"
+    } else {
+        "网络连接中断或无法建立连接，未自动重试。"
     })
 }

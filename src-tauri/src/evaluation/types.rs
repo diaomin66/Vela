@@ -1,6 +1,11 @@
 //! Serializable evaluation contracts. No credentials or raw transport diagnostics.
 use serde::{Deserialize, Serialize};
 
+pub const DEFAULT_REQUEST_TIMEOUT_SECONDS: u32 = 300;
+fn legacy_request_timeout_seconds() -> u32 {
+    120
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EvaluationTarget {
@@ -27,6 +32,8 @@ pub struct EvaluationPlan {
     pub judge: Option<EvaluationTarget>,
     pub schedule_enabled: bool,
     pub interval_hours: u32,
+    #[serde(default = "legacy_request_timeout_seconds")]
+    pub request_timeout_seconds: u32,
 }
 
 impl Default for EvaluationPlan {
@@ -37,6 +44,7 @@ impl Default for EvaluationPlan {
             judge: None,
             schedule_enabled: false,
             interval_hours: 24,
+            request_timeout_seconds: DEFAULT_REQUEST_TIMEOUT_SECONDS,
         }
     }
 }

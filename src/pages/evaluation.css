@@ -67,6 +67,9 @@
 .evaluation-loading, .evaluation-waiting { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; min-height: 220px; color: #708261; font-size: 12px; }
 .evaluation-comparison { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }.evaluation-comparison > .vela-select { width: 215px; }.evaluation-comparison > small { font-size: 10px; color: #627458; }
 .evaluation-plan-section + .evaluation-plan-section { margin-top: 25px; }
+.evaluation-section-label > label { font-size: 12px; font-weight: 600; }
+.evaluation-timeout-custom { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 15px; margin-top: 10px; }
+.evaluation-timeout-custom > label { color: #526448; font-size: 11px; }
 .evaluation-section-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }.evaluation-section-label h3 { font-size: 12px; font-weight: 600; }.evaluation-section-label > span { color: #6b7765; font-size: 10px; }
 .evaluation-targets { display: grid; gap: 9px; }
 .evaluation-target { display: grid; grid-template-columns: minmax(0,1fr) 28px; gap: 10px; background: #eff3e9; border-radius: 15px; padding: 13px; }

@@ -95,9 +95,11 @@ pub(super) fn recover(paths: &AppPaths) -> Result<(), String> {
     let store = read(paths)?;
     if let Some(id) = store.active_run_id {
         let mut run = read_run(paths, &id)?;
-        run.status = RunStatus::Interrupted;
-        run.finished_at = Some(chrono::Utc::now().to_rfc3339());
-        run.error = Some("上次评测因程序退出而中断；不会自动重发已产生费用的请求。".into());
+        if run.status == RunStatus::Running {
+            run.status = RunStatus::Interrupted;
+            run.finished_at = Some(chrono::Utc::now().to_rfc3339());
+            run.error = Some("上次评测因程序退出而中断；不会自动重发已产生费用的请求。".into());
+        }
         finish(paths, &run)?;
     }
     Ok(())

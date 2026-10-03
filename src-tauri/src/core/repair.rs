@@ -13,8 +13,14 @@ pub fn preview_repair(paths: &AppPaths) -> Result<ChangePreview, String> {
     let store = load_store(paths)?;
     let current = read_config(paths)?;
     if let Ok(contents) = config_text(&current) {
+        let route = crate::catalog::configured_route(&store, contents);
+        if crate::catalog::routing_mismatch(paths, &store, contents) {
+            let mut preview = crate::catalog::preview(paths, route.as_deref())?;
+            preview.title = "修复模型与服务商路由".into();
+            return Ok(preview);
+        }
         if crate::catalog::is_gateway_config(contents) {
-            if let Ok(mut preview) = crate::catalog::preview(paths, None) {
+            if let Ok(mut preview) = crate::catalog::preview(paths, route.as_deref()) {
                 preview.title = "修复统一模型目录".into();
                 return Ok(preview);
             }
@@ -25,7 +31,7 @@ pub fn preview_repair(paths: &AppPaths) -> Result<ChangePreview, String> {
             {
                 if let Ok(mut preview) = preview_profile(paths, &id) {
                     preview.title = "修复当前连接配置".into();
-                    preview.summary = "重新写入当前连接的模型、地址、Responses 协议和凭据助手设置。其他服务商与无关配置保持原样。".into();
+                    preview.summary = "重新写入当前连接的模型、地址、Responses 协议和凭据助手设置。应用后请彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商。".into();
                     return Ok(preview);
                 }
             }
@@ -51,6 +57,9 @@ pub fn apply_repair(paths: &AppPaths, expected_hash: &str) -> Result<Backup, Str
     } else if let Some(id) = preview.backup_id {
         restore_backup(paths, &id, expected_hash)
     } else {
-        crate::catalog::apply(paths, None, expected_hash)
+        let store = load_store(paths)?;
+        let current = read_config(paths)?;
+        let route = crate::catalog::configured_route(&store, config_text(&current)?);
+        crate::catalog::apply(paths, route.as_deref(), expected_hash)
     }
 }

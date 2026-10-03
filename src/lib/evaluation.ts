@@ -22,5 +22,6 @@ export function validateEvaluationPlan(plan: EvaluationPlan): string | null {
   if (!plan.cases.length) return '请至少选择一项测试。';
   if (plan.targets.some((target) => target.reasoningEffort === 'ultra') || plan.judge?.reasoningEffort === 'ultra') return '评测直接调用模型 API，请选择普通推理档位；Ultra 请在原生任务中使用。';
   if (!Number.isInteger(plan.intervalHours) || plan.intervalHours < 1 || plan.intervalHours > 168) return '定时间隔应为 1–168 小时。';
+  if (!Number.isInteger(plan.requestTimeoutSeconds) || plan.requestTimeoutSeconds < 30 || plan.requestTimeoutSeconds > 3600) return '请求超时应为 30–3600 秒的整数。';
   return null;
 }

@@ -71,6 +71,17 @@ pub(super) async fn run_diagnostics(
         .ok()
         .and_then(|bytes| core::config_text(bytes).ok())
         .unwrap_or("");
+    if catalog::routing_mismatch(&state.paths, &store, config_text) {
+        report.items.push(diagnostics::DiagnosticItem {
+            id: "gateway-routing-mismatch".into(),
+            category: "configuration".into(),
+            title: "Vela 模型与当前服务商不匹配".into(),
+            status: "error".into(),
+            description: "当前配置使用已知 Vela 路由模型或 Vela 生成的目录，但实际服务商没有连接到对应的本机网关，渠道可能收到无法识别的模型标识。".into(),
+            action: Some("预览修复或重新同步统一模型目录。完成后彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，单独切换模型不会切换服务商。".into()),
+            repairable: true,
+        });
+    }
     if catalog::is_gateway_config(config_text) {
         let running = state
             .gateway

@@ -7,6 +7,8 @@ import type { CatalogEntry, Dashboard } from '../../types';
 import { Drawer } from '../Drawer';
 import { Select } from '../Select';
 
+const REQUEST_TIMEOUT_PRESETS = [120, 300, 600, 1800];
+
 function EffortSelect({ entry, value, onChange, label }: { entry?: CatalogEntry; value: string | null; onChange: (value: string | null) => void; label: string }) {
   const efforts = entry?.apiReasoningEfforts ?? [];
   return <Select ariaLabel={label} value={value ?? 'auto'} options={[{ value: 'auto', label: 'API 默认' }, ...efforts.map((effort) => ({ value: effort, label: effortLabels[effort] ?? effort }))]} onChange={(next) => onChange(next === 'auto' ? null : next)}/>;
@@ -17,6 +19,7 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
   onClose: () => void; onSave: (plan: EvaluationPlan) => Promise<boolean>; onStart: (plan: EvaluationPlan) => Promise<boolean>;
 }) {
   const [plan, setPlan] = useState(() => structuredClone(initial));
+  const [customTimeout, setCustomTimeout] = useState(!REQUEST_TIMEOUT_PRESETS.includes(initial.requestTimeoutSeconds));
   const [error, setError] = useState<string | null>(null);
   const entries = workspace.catalog.filter((entry) => entry.enabled);
   const entriesByKey = new Map(entries.map((entry) => [targetKey(entry), entry]));
@@ -32,7 +35,7 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
     if (await (start ? onStart(plan) : onSave(plan))) onClose();
   }
   return <Drawer title="评测计划" subtitle="选择模型、题目和执行方式" onClose={onClose} locked={pending}>
-    <form className="editor-form evaluation-plan" onSubmit={(event) => { event.preventDefault(); void submit(false); }}>
+    <form className="editor-form evaluation-plan" noValidate onSubmit={(event) => { event.preventDefault(); void submit(false); }}>
       <div className="editor-scroll">
         <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>被测模型</h3><span>{plan.targets.length} / 6</span></div>
           <div className="evaluation-targets">{plan.targets.map((target, index) => {
@@ -46,6 +49,10 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
         <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>模型复评</h3><span>可选</span></div><Select ariaLabel="评审模型" value={plan.judge ? targetKey(plan.judge) : 'off'} searchable options={[{ value: 'off', label: '不使用模型复评', description: '只保留本机检查与原始答案' }, ...options]} onChange={(value) => patch({ judge: value === 'off' ? null : targetFor(value) })} disabled={pending}/>
           {plan.judge && <div className="evaluation-judge-effort"><EffortSelect entry={entriesByKey.get(targetKey(plan.judge))} value={plan.judge.reasoningEffort} label="评审模型推理强度" onChange={(reasoningEffort) => patch({ judge: { ...plan.judge!, reasoningEffort } })}/></div>}
           <p className="evaluation-caption">{selfJudging ? '当前包含同模型自评，结果会标为模型复评，不代表独立意见。' : '评审模型会收到测试题与答案。主观评分单独展示；鹈鹕为 SVG 代码复评。'}</p>
+        </section>
+        <section className="evaluation-plan-section"><div className="evaluation-section-label"><label htmlFor="evaluation-request-timeout">单次请求超时</label><span>默认 5 分钟</span></div><Select id="evaluation-request-timeout" ariaLabel="单次请求超时" value={customTimeout ? 'custom' : String(plan.requestTimeoutSeconds)} options={[...REQUEST_TIMEOUT_PRESETS.map((seconds) => ({ value: String(seconds), label: `${seconds / 60} 分钟` })), { value: 'custom', label: '自定义' }]} disabled={pending} onChange={(value) => { setCustomTimeout(value === 'custom'); if (value !== 'custom') patch({ requestTimeoutSeconds: Number(value) }); }}/>
+          {customTimeout && <div className="evaluation-timeout-custom"><label htmlFor="evaluation-timeout-seconds">超时秒数</label><input id="evaluation-timeout-seconds" type="number" min={30} max={3600} step={1} required value={Number.isFinite(plan.requestTimeoutSeconds) ? plan.requestTimeoutSeconds : ''} aria-describedby="evaluation-timeout-hint" aria-invalid={error?.startsWith('请求超时') || undefined} disabled={pending} onChange={(event) => patch({ requestTimeoutSeconds: event.target.valueAsNumber })}/></div>}
+          <p id="evaluation-timeout-hint" className="evaluation-caption">每道题与模型复评分别计时，支持 30–3600 秒。</p>
         </section>
         <section className="evaluation-plan-section"><label className="evaluation-schedule-toggle" htmlFor="evaluation-schedule"><span><Clock3 size={17}/><strong>定时评测</strong></span><input id="evaluation-schedule" type="checkbox" checked={plan.scheduleEnabled} disabled={pending} onChange={(event) => patch({ scheduleEnabled: event.target.checked })}/></label>
           {plan.scheduleEnabled && <div className="evaluation-interval"><Select ariaLabel="评测间隔" value={String(plan.intervalHours)} options={[...new Set([1, 3, 6, 12, 24, 72, 168, plan.intervalHours])].sort((a, b) => a - b).map((hours) => ({ value: String(hours), label: hours === 24 ? '每天' : hours === 168 ? '每周' : `每 ${hours} 小时` }))} onChange={(value) => patch({ intervalHours: Number(value) })} disabled={pending}/><p className="evaluation-caption">保存计划后生效。Vela 在后台运行时执行，错过的轮次不会累积补跑。</p></div>}

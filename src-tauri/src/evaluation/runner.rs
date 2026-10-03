@@ -5,6 +5,7 @@ use super::{
     types::*,
 };
 use chrono::Utc;
+use std::time::{Duration, Instant};
 use tokio::sync::watch;
 
 pub(super) struct PreparedPlan {
@@ -14,9 +15,20 @@ pub(super) struct PreparedPlan {
 
 pub(super) async fn execute(
     prepared: PreparedPlan,
+    run: EvaluationRun,
+    cancel: watch::Receiver<bool>,
+    progress: impl Fn(&EvaluationRun) -> Result<(), String>,
+) -> EvaluationRun {
+    let timeout = Duration::from_secs(u64::from(run.plan.request_timeout_seconds));
+    execute_with_timeout(prepared, run, cancel, progress, timeout).await
+}
+
+pub(super) async fn execute_with_timeout(
+    prepared: PreparedPlan,
     mut run: EvaluationRun,
     cancel: watch::Receiver<bool>,
     progress: impl Fn(&EvaluationRun) -> Result<(), String>,
+    timeout: Duration,
 ) -> EvaluationRun {
     let client = match client::http_client() {
         Ok(client) => client,
@@ -54,7 +66,8 @@ pub(super) async fn execute(
                 error: None,
                 judge: None,
             };
-            match client::request(&client, target, prompt, cancel.clone()).await {
+            let started = Instant::now();
+            match client::request(&client, target, prompt, timeout, cancel.clone()).await {
                 Ok(answer) => {
                     let grade = cases::grade(case_id, &answer.text);
                     result.status = if grade.score == 100 {
@@ -81,6 +94,7 @@ pub(super) async fn execute(
                             &client,
                             judge,
                             &cases::judge_prompt(case_id, &result.output),
+                            timeout,
                             cancel.clone(),
                         )
                         .await
@@ -116,6 +130,7 @@ pub(super) async fn execute(
                     }
                 }
                 Err(error) => {
+                    result.elapsed_ms = started.elapsed().as_millis() as u64;
                     result.status = if error.cancelled {
                         CaseStatus::Cancelled
                     } else {

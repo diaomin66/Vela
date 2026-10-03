@@ -310,7 +310,8 @@ try {
   const catalogPath = catalogLiteral.startsWith("'") ? catalogLiteral.slice(1, -1) : JSON.parse(catalogLiteral);
   const catalogRelativePath = path.relative(path.join(dataDirectory, 'catalogs'), catalogPath);
   assert(!catalogRelativePath.startsWith('..') && !path.isAbsolute(catalogRelativePath), 'The actual catalog must remain inside this isolated application data directory.');
-  const nativeCatalog = JSON.parse(await readFile(catalogPath, 'utf8'));
+  const catalogContents = await readFile(catalogPath, 'utf8');
+  const nativeCatalog = JSON.parse(catalogContents);
   assert.equal(nativeCatalog.models.length, 2);
   for (const channel of channels) {
     const nativeModel = nativeCatalog.models.find((model) => model.slug === channel.route.routeId);
@@ -328,6 +329,48 @@ try {
   assert.equal(active.gatewayApplied, true);
   assert.equal(active.gateway.running, true);
   assert.equal(active.gateway.port, gatewayPort);
+  assert.equal(active.defaultRouteId, channels[0].route.routeId);
+
+  const requestsBeforeRepair = channels.map((channel) => channel.requests.length);
+  const mismatchedWork = workSection
+    .replace(/^model\s*=.*$/m, `model = "${channels[1].route.routeId}"`)
+    .replace(/^model_provider\s*=.*$/m, 'model_provider = "smoke_direct"');
+  assert.notEqual(mismatchedWork, workSection);
+  await writeFile(configPath, `${applied.replace(workSection, mismatchedWork)}\n[model_providers.smoke_direct]\nname = "Smoke Direct"\nbase_url = "${channels[1].origin}${channels[1].prefix}"\nwire_api = "responses"\n`);
+  const mismatchedReport = await invoke('run_diagnostics', { runId: randomUUID(), includeNetwork: false });
+  assert.equal(mismatchedReport.items.find((item) => item.id === 'gateway-routing-mismatch')?.status, 'error');
+  assert.equal(mismatchedReport.canRepair, true);
+  const routingRepair = await invoke('preview_repair');
+  assert.equal(routingRepair.title, '修复模型与服务商路由');
+  assert(routingRepair.changes.some((change) => change.label === '默认模型' && change.after === channels[1].route.displayName));
+  assert(routingRepair.summary.includes('新建会话'));
+  assert(!channels.some((channel) => JSON.stringify([mismatchedReport, routingRepair]).includes(channel.key)));
+  await invoke('apply_repair', { expectedHash: routingRepair.expectedHash });
+  const repaired = await readFile(configPath, 'utf8');
+  const repairedWork = repaired.match(/^\[profiles\.work\]\r?\n([\s\S]*?)(?=^\[|(?![\s\S]))/m)?.[1];
+  assert(repairedWork);
+  for (const section of [repaired.split(/^\[/m)[0], repairedWork]) {
+    assert.equal(section.match(/^model\s*=\s*"([^"]+)"/m)?.[1], channels[1].route.routeId, 'Repair must preserve the current second-channel route instead of the saved first-channel default.');
+    assert.match(section, /^model_provider\s*=\s*"Vela"/m);
+    assert.equal(section.match(/^model_catalog_json\s*=\s*(.+)$/m)?.[1].trim(), catalogLiteral);
+  }
+  const repairedDashboard = await invoke('get_dashboard');
+  assert.equal(repairedDashboard.defaultRouteId, channels[1].route.routeId);
+  assert.equal(repairedDashboard.gatewayApplied, true);
+  const repairedReport = await invoke('run_diagnostics', { runId: randomUUID(), includeNetwork: false });
+  assert(!repairedReport.items.some((item) => item.id === 'gateway-routing-mismatch'));
+
+  const directPreview = await invoke('preview_profile', { id: channels[0].profileId });
+  await invoke('apply_profile', { id: channels[0].profileId, expectedHash: directPreview.expectedHash });
+  const direct = await readFile(configPath, 'utf8');
+  assert(!/^model_catalog_json\s*=/m.test(direct), 'Applying a direct provider must clear the owned catalog from both root and selected profile.');
+  assert.equal(await readFile(catalogPath, 'utf8'), catalogContents, 'Clearing catalog references must preserve the owned catalog file.');
+  assert.deepEqual(channels.map((channel) => channel.requests.length), requestsBeforeRepair, 'Local diagnosis and configuration repair must not send upstream requests.');
+  await writeFile(configPath, applied);
+  const resetPreview = await invoke('preview_gateway', { defaultRouteId: channels[0].route.routeId });
+  await invoke('apply_gateway', { defaultRouteId: channels[0].route.routeId, expectedHash: resetPreview.expectedHash });
+  assert.equal(await readFile(configPath, 'utf8'), applied);
+  assert.equal((await invoke('get_dashboard')).defaultRouteId, channels[0].route.routeId);
 
   // Exercise the packaged frontend against the saved native capabilities.
   // Opening selectors must never trigger a billable model validation request.
@@ -444,7 +487,7 @@ try {
   }
   assert.equal((await invoke('get_dashboard')).profiles.length, 0);
   assert.deepEqual(errors, []);
-  console.log(`Vela ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
+  console.log(`Vela ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, provider mismatch diagnosis and repair preserving the current route, direct-provider catalog cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
   console.log('Only temporary local services, synthetic channel keys, and an isolated CODEX_HOME were used.');
 } finally {
   if (page) {

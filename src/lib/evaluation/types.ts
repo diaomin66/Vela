@@ -1,6 +1,6 @@
 export type EvaluationCaseId = 'candy' | 'pelican' | 'judgment';
 export interface EvaluationTarget { profileId: string; modelId: string; reasoningEffort: string | null }
-export interface EvaluationPlan { targets: EvaluationTarget[]; cases: EvaluationCaseId[]; judge: EvaluationTarget | null; scheduleEnabled: boolean; intervalHours: number }
+export interface EvaluationPlan { targets: EvaluationTarget[]; cases: EvaluationCaseId[]; judge: EvaluationTarget | null; scheduleEnabled: boolean; intervalHours: number; requestTimeoutSeconds: number }
 export interface EvaluationCase { id: EvaluationCaseId; title: string; description: string; version: string }
 export interface EvaluationCheck { label: string; passed: boolean }
 export interface JudgeResult { score: number | null; explanation: string; profileId: string; modelId: string; error: string | null }

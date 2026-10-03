@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { readFile } from 'node:fs/promises';
 
 const navigation = (page: Page, name: string) => page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name, exact: true });
 const results = (page: Page) => page.getByRole('region', { name: '评测结果', exact: true });
@@ -156,6 +157,47 @@ test('schedule saves without making a request and can be paused', async ({ page 
   await expect(page.locator('.evaluation-schedule-bar')).toContainText('定时评测未开启');
   await expect(page.locator('.evaluation-schedule-bar')).not.toContainText('演示下次');
   await expect(page.locator('.evaluation-history-row')).toHaveCount(0);
+});
+
+test('request timeout validates custom seconds and preserves separate schedule and run values', async ({ page }) => {
+  const drawer = await openPlan(page);
+  const timeout = drawer.getByRole('combobox', { name: '单次请求超时', exact: true });
+  await expect(timeout).toHaveText('5 分钟');
+  await choose(page, timeout, '自定义');
+  const seconds = drawer.getByRole('spinbutton', { name: '超时秒数', exact: true });
+  await expect(seconds).toHaveValue('300');
+  await seconds.fill('29');
+  await drawer.getByRole('button', { name: '开始本次评测', exact: true }).click();
+  await expect(drawer.getByRole('alert')).toHaveText('请求超时应为 30–3600 秒的整数。');
+  await expect(seconds).toHaveAttribute('aria-invalid', 'true');
+  await seconds.fill('3601');
+  await drawer.getByRole('button', { name: '保存计划', exact: true }).click();
+  await expect(drawer.getByRole('alert')).toHaveText('请求超时应为 30–3600 秒的整数。');
+  await expect(page.locator('.evaluation-history-row')).toHaveCount(0);
+  await seconds.fill('125');
+  await drawer.getByRole('checkbox', { name: '定时评测', exact: true }).check();
+  await page.setViewportSize({ width: 390, height: 780 });
+  await fits(page, 'custom timeout field');
+  await accessible(page, 'custom timeout field');
+  await seconds.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'artifacts/screenshots/evaluation-custom-timeout.png' });
+  await drawer.getByRole('button', { name: '保存计划', exact: true }).click();
+  await expect(drawer).toHaveCount(0);
+  await openPlan(page);
+  await expect(timeout).toHaveText('自定义');
+  await expect(seconds).toHaveValue('125');
+  await expect(drawer.getByRole('checkbox', { name: '定时评测', exact: true })).toBeChecked();
+  await choose(page, timeout, '10 分钟');
+  await start(page, drawer);
+  await complete(page);
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出评测报告', exact: true }).click();
+  const report = await downloading;
+  const exported = JSON.parse(await readFile((await report.path())!, 'utf8'));
+  expect(exported.plan.requestTimeoutSeconds).toBe(600);
+  await openPlan(page);
+  await expect(timeout).toHaveText('自定义');
+  await expect(seconds).toHaveValue('125');
 });
 
 test('plan validation prevents an empty target or test list', async ({ page }) => {

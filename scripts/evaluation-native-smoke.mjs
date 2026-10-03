@@ -96,11 +96,12 @@ async function until(predicate, label, timeout = 20000) {
   }
   throw new Error(`Timed out: ${label}`);
 }
-async function finishedRun(id) {
+async function finishedRun(id, timeout = 20000) {
   const dashboard = await until(async () => {
     const current = await invoke('get_evaluation_dashboard');
+    if (!current.active && current.error) throw new Error(`Evaluation storage failed: ${current.error}`);
     return !current.active && current.history.some((item) => item.id === id) ? current : null;
-  }, `evaluation completion ${id}`);
+  }, `evaluation completion ${id}`, timeout);
   const run = await invoke('get_evaluation_run', { runId: id });
   assert.equal(dashboard.history.find((item) => item.id === id).status, run.status);
   assertNoSecrets(run);
@@ -283,7 +284,7 @@ try {
         const requestRecord = { phase: mode, judge: isJudge, caseId, model: body.model, effort: body.reasoning?.effort ?? null, disconnected: false };
         report.requests.push(requestRecord);
         assert.deepEqual(body.reasoning, channel.judge ? undefined : { effort: 'high' });
-        if (mode === 'cancel' && !isJudge) {
+        if ((mode === 'cancel' || mode === 'timeout') && !isJudge) {
           heldResponse = response;
           response.once('close', () => { requestRecord.disconnected = true; });
           return; // Hold the first request until native cancellation aborts it.
@@ -326,6 +327,7 @@ try {
   const empty = await invoke('get_evaluation_dashboard');
   assert.equal(empty.history.length, 0);
   assert.equal(empty.active, null);
+  assert.equal(empty.plan.requestTimeoutSeconds, 300);
   assert.deepEqual(empty.cases.map((item) => item.id).sort(), ['candy', 'judgment', 'pelican']);
   for (const channel of channels) {
     const saved = await invoke('save_profile', { input: {
@@ -341,7 +343,10 @@ try {
   }
   const subject = { profileId: channels[0].profileId, modelId: channels[0].model, reasoningEffort: 'high' };
   const judge = { profileId: channels[1].profileId, modelId: channels[1].model, reasoningEffort: null };
-  const plan = { targets: [subject], cases: ['candy', 'pelican', 'judgment'], judge, scheduleEnabled: false, intervalHours: 1 };
+  const plan = { targets: [subject], cases: ['candy', 'pelican', 'judgment'], judge, scheduleEnabled: false, intervalHours: 1, requestTimeoutSeconds: 125 };
+  const legacyPlan = { ...plan };
+  delete legacyPlan.requestTimeoutSeconds;
+  assert.equal((await invoke('save_evaluation_plan', { plan: legacyPlan })).plan.requestTimeoutSeconds, 120);
   const saved = await invoke('save_evaluation_plan', { plan });
   assert.deepEqual(saved.plan, plan);
   assert.deepEqual((await invoke('get_evaluation_dashboard')).plan, plan);
@@ -350,6 +355,7 @@ try {
   check('Packaged IPC saves and reads an isolated evaluation plan');
 
   const run = await finishedRun(await startRun(plan));
+  assert.equal(run.plan.requestTimeoutSeconds, 125);
   assert.equal(run.status, 'completed');
   assert.equal(run.trigger, 'manual');
   assert.equal(run.totalCases, 3);
@@ -396,13 +402,17 @@ try {
   const beforeInvalid = report.requests.length;
   await assert.rejects(startRun({ ...plan, targets: [{ ...subject, reasoningEffort: 'ultra' }] }));
   await assert.rejects(startRun({ ...plan, targets: [{ ...subject, reasoningEffort: 'max' }] }));
+  for (const requestTimeoutSeconds of [29, 3601, 30.5]) {
+    await assert.rejects(startRun({ ...plan, requestTimeoutSeconds }));
+    await assert.rejects(invoke('save_evaluation_plan', { plan: { ...plan, requestTimeoutSeconds } }));
+  }
   await assert.rejects(invoke('get_evaluation_run', { runId: '../outside' }));
   assert.equal(report.requests.length, beforeInvalid);
   check('Invalid API efforts and unsafe run IDs fail before network access');
 
   mode = 'cancel';
   const beforeCancel = report.requests.length;
-  const cancelledId = await startRun(plan);
+  const cancelledId = await startRun({ ...plan, requestTimeoutSeconds: 1800 });
   await until(() => heldResponse, 'first cancellable Responses request');
   await assert.rejects(startRun(plan));
   await invoke('cancel_evaluation', { runId: cancelledId });
@@ -416,6 +426,22 @@ try {
   assert.equal(report.requests.length, beforeCancel + 1, 'Cancellation must stop judge and later task requests.');
   heldResponse = undefined;
   check('Native cancellation aborts the active request and prevents all subsequent requests');
+
+  mode = 'timeout';
+  const beforeTimeout = report.requests.length;
+  const timeoutStarted = Date.now();
+  const expired = await finishedRun(await startRun({ ...plan, cases: ['candy'], judge: null, requestTimeoutSeconds: 30 }), 45000);
+  const timeoutElapsed = Date.now() - timeoutStarted;
+  assert.equal(expired.results[0].status, 'error');
+  assert.equal(expired.results[0].score, null);
+  assert.match(expired.results[0].error, /超时.*30/);
+  assert(timeoutElapsed >= 29000 && timeoutElapsed < 45000, 'Use the configured native timeout, not the former fixed 120-second limit.');
+  assert(expired.results[0].elapsedMs >= 29000 && expired.results[0].elapsedMs < 45000, 'Timed-out results must report the actual waiting time.');
+  await until(() => report.requests.at(-1).disconnected, 'timed-out transport disconnect');
+  assert.equal(report.requests.length, beforeTimeout + 1, 'A timed-out request must not be retried.');
+  report.timeout = { configuredSeconds: 30, elapsedMs: timeoutElapsed, error: expired.results[0].error };
+  heldResponse = undefined;
+  check('Custom request deadlines survive IPC and persistence, legacy plans retain 120 seconds, and timed-out requests are not retried');
 
   mode = 'scheduled';
   const scheduledPlan = { ...plan, cases: ['candy'], judge: null, scheduleEnabled: true };
@@ -442,6 +468,7 @@ try {
     return !current.active && completed ? completed : null;
   }, 'background scheduled evaluation');
   const scheduledRun = await invoke('get_evaluation_run', { runId: scheduledHistory.id });
+  assert.equal(scheduledRun.plan.requestTimeoutSeconds, 125);
   assert.equal(scheduledRun.results[0].score, 100);
   assert.equal(report.requests.length, beforeSchedule + 1);
   const afterSchedule = await invoke('get_evaluation_dashboard');

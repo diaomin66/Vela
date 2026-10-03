@@ -89,7 +89,11 @@ pub fn profile_matches_configuration(contents: &str, profile: &Profile, helper: 
         && args_matches
 }
 
-pub fn render_profile(current: &str, profile: &Profile, helper: &Path) -> Result<String, String> {
+pub fn render_profile(
+    current: &str,
+    profile: &Profile,
+    paths: &AppPaths,
+) -> Result<String, String> {
     if profile.model.trim().is_empty() {
         return Err("此渠道尚未指定旧版直连模型，请使用统一模型目录选择并应用模型。".into());
     }
@@ -124,6 +128,7 @@ pub fn render_profile(current: &str, profile: &Profile, helper: &Path) -> Result
         doc["profiles"][&name]["model"] = value(&profile.model);
         doc["profiles"][&name]["model_provider"] = value(&provider);
     }
+    crate::catalog::clear_owned_catalogs(&mut doc, paths);
     if !doc.contains_key("model_providers") {
         doc["model_providers"] = Item::Table(Table::new());
     }
@@ -167,7 +172,7 @@ pub fn render_profile(current: &str, profile: &Profile, helper: &Path) -> Result
         }
     }
     let mut auth = Table::new();
-    auth.insert("command", value(helper.to_string_lossy().as_ref()));
+    auth.insert("command", value(paths.helper.to_string_lossy().as_ref()));
     let mut args = Array::new();
     args.push("--credential");
     args.push(profile.id.as_str());
@@ -184,8 +189,8 @@ pub fn preview_profile(paths: &AppPaths, id: &str) -> Result<ChangePreview, Stri
     let profile = load_profile(paths, id)?;
     let current = read_config(paths)?;
     let contents = config_text(&current)?;
-    let proposed = Zeroizing::new(render_profile(contents, &profile, &paths.helper)?);
-    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "将更新默认模型和当前连接，并保留其他配置。应用前会自动创建加密备份；请关闭正在运行的 Codex 后应用，再重新打开。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
+    let proposed = Zeroizing::new(render_profile(contents, &profile, paths)?);
+    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "更新直连模型与服务商，清理当前配置中由 Vela 生成的模型目录。应用前自动备份；应用后请彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
 }
 pub fn apply_profile(paths: &AppPaths, id: &str, expected_hash: &str) -> Result<Backup, String> {
     let _lock = paths.lock()?;
@@ -198,11 +203,7 @@ pub fn apply_profile(paths: &AppPaths, id: &str, expected_hash: &str) -> Result<
         return Err("凭据读取程序不存在，请重新安装应用。".into());
     }
     let current = read_config(paths)?;
-    let proposed = Zeroizing::new(render_profile(
-        config_text(&current)?,
-        &profile,
-        &paths.helper,
-    )?);
+    let proposed = Zeroizing::new(render_profile(config_text(&current)?, &profile, paths)?);
     if token(raw(&current), Some(proposed.as_bytes())) != expected_hash {
         return Err("配置或连接在预览后发生变化，请重新预览再应用。".into());
     }

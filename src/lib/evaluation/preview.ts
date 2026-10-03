@@ -6,7 +6,7 @@ const pelican = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300
 // All results are explicitly simulated. This adapter has no network, filesystem,
 // real scheduler or credential access, and survives page navigation in memory.
 export function createPreviewEvaluation(now: () => number = Date.now, workspace?: () => Promise<Dashboard>): EvaluationApi {
-  let saved: EvaluationPlan = { targets: [], cases: ['candy', 'pelican'], judge: null, scheduleEnabled: false, intervalHours: 24 };
+  let saved: EvaluationPlan = { targets: [], cases: ['candy', 'pelican'], judge: null, scheduleEnabled: false, intervalHours: 24, requestTimeoutSeconds: 300 };
   let active: EvaluationRun | null = null;
   let nextRunAt: string | null = null;
   const runs: EvaluationRun[] = [];

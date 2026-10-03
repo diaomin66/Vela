@@ -1,7 +1,9 @@
 //! The local model file follows openai/codex ModelInfo + ModelsResponse.
 //! Source checked: codex-rs/protocol/src/openai_models.rs (2026-10-03).
+mod routing;
 use crate::core::{self, AppPaths, Backup, Change, ChangePreview, NativeReasoning, Profile, Store};
 use crate::gateway::{GatewayCatalog, GatewayRoute};
+pub(crate) use routing::{clear_owned_catalogs, configured_route, routing_mismatch};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -169,6 +171,8 @@ pub fn render(
         }
         doc["profiles"][&name]["model_provider"] = value(provider);
         doc["profiles"][&name]["model"] = value(route);
+        doc["profiles"][&name]["model_catalog_json"] =
+            value(model_file(paths, store).to_string_lossy().as_ref());
         for key in [
             "model_reasoning_effort",
             "model_reasoning_summary",
@@ -248,7 +252,7 @@ pub fn preview(paths: &AppPaths, default: Option<&str>) -> Result<ChangePreview,
     let route = selected_route(&store, default)?;
     let current = core::read_config(paths)?;
     let proposed = render(core::config_text(&current)?, paths, &store, &route)?;
-    Ok(ChangePreview{id:uuid::Uuid::new_v4().to_string(),title:"同步所有模型到 Codex".into(),summary:"应用统一服务商与模型目录。窗口关闭后 Vela 在托盘中继续转发请求；请重新打开 Codex 读取模型列表。".into(),changes:vec![Change{label:"服务商".into(),before:"当前配置".into(),after:store.settings.provider_name.clone()},Change{label:"可选模型".into(),before:"当前模型目录".into(),after:format!("{} 个已启用模型",entries(&store.profiles).iter().filter(|e|e.enabled).count())},Change{label:"默认模型".into(),before:"当前默认模型".into(),after:entries(&store.profiles).iter().find(|e|e.route_id==route).map(|e|e.display_name.clone()).unwrap_or_default()}],expected_hash:fingerprint(&current,&proposed,&store)?,profile_id:None,backup_id:None})
+    Ok(ChangePreview{id:uuid::Uuid::new_v4().to_string(),title:"同步所有模型到 Codex".into(),summary:"应用统一服务商与模型目录，Vela 在托盘中继续转发请求。应用后请彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，切换模型不会同时切换服务商。".into(),changes:vec![Change{label:"服务商".into(),before:"当前配置".into(),after:store.settings.provider_name.clone()},Change{label:"可选模型".into(),before:"当前模型目录".into(),after:format!("{} 个已启用模型",entries(&store.profiles).iter().filter(|e|e.enabled).count())},Change{label:"默认模型".into(),before:"当前默认模型".into(),after:entries(&store.profiles).iter().find(|e|e.route_id==route).map(|e|e.display_name.clone()).unwrap_or_default()}],expected_hash:fingerprint(&current,&proposed,&store)?,profile_id:None,backup_id:None})
 }
 pub fn apply(paths: &AppPaths, default: Option<&str>, expected: &str) -> Result<Backup, String> {
     let _lock = paths.lock()?;
@@ -830,6 +834,47 @@ mod tests {
         assert!(applied(&paths, &store, &selected.to_string()));
         selected["profiles"]["work"]["model_reasoning_effort"] = value("invalid");
         assert!(!applied(&paths, &store, &selected.to_string()));
+    }
+
+    #[test]
+    fn unified_catalog_updates_active_profile_override_and_detects_later_divergence() {
+        let directory = tempfile::tempdir().unwrap();
+        let paths = AppPaths {
+            data: directory.path().join("data"),
+            config: directory.path().join("config"),
+            helper: directory.path().join("helper"),
+        };
+        let store = sample();
+        let current = "profile=\"work\"\nmodel_catalog_json=\"old-root.json\"\n[profiles.work]\nmodel_catalog_json=\"old-active.json\"\nsandbox_mode=\"read-only\"\n[profiles.other]\nmodel_catalog_json=\"keep-other.json\"\n";
+        let mut doc = render(
+            current,
+            &paths,
+            &store,
+            &entries(&store.profiles)[0].route_id,
+        )
+        .unwrap()
+        .parse::<DocumentMut>()
+        .unwrap();
+        assert_eq!(
+            doc["model_catalog_json"].as_str(),
+            Some(model_file(&paths, &store).to_string_lossy().as_ref())
+        );
+        assert_eq!(
+            doc["profiles"]["work"]["model_catalog_json"].as_str(),
+            doc["model_catalog_json"].as_str()
+        );
+        assert_eq!(
+            doc["profiles"]["other"]["model_catalog_json"].as_str(),
+            Some("keep-other.json")
+        );
+        assert_eq!(
+            doc["profiles"]["work"]["sandbox_mode"].as_str(),
+            Some("read-only")
+        );
+        write_model_catalog(&paths, &store).unwrap();
+        assert!(applied(&paths, &store, &doc.to_string()));
+        doc["profiles"]["work"]["model_catalog_json"] = value("override.json");
+        assert!(!applied(&paths, &store, &doc.to_string()));
     }
 
     #[test]
