@@ -148,7 +148,7 @@ export function Select({ id, ariaLabel, value, onChange, options, disabled = fal
           if (event.key === 'Home') setActive(Math.max(0, options.findIndex((option) => !option.disabled)));
         }
       }}>
-      <span className={!chosen ? 'vela-select-placeholder' : ''}>{chosen?.label ?? placeholder}</span><ChevronDown size={15} className={open ? 'is-open' : ''}/>
+      <span className={!chosen ? 'vela-select-placeholder' : ''} title={chosen?.label}>{chosen?.label ?? placeholder}</span><ChevronDown size={16} className={open ? 'is-open' : ''}/>
     </button>
     <div ref={popup} className="vela-select-popup" popover="auto" style={placement}
       onToggle={(event) => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={navigate}>

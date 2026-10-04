@@ -13,7 +13,7 @@ function ArtifactReview({ html, modelId }: { html: string; modelId: string }) {
 export function EvaluationResultContent({ result }: { result: CaseResult }) {
   const html = result.artifactHtml ?? result.safeSvg;
   return <div className="evaluation-result-detail">
-    <div className="evaluation-result-meta"><span>推理 {effortName(result.reasoningEffort)}</span><span>耗时 {duration(result.elapsedMs)}</span>{result.inputTokens != null && <span>{result.inputTokens} 输入 / {result.outputTokens ?? '—'} 输出 token</span>}</div>
+    <dl className="evaluation-result-meta"><div><dt>推理强度</dt><dd>{effortName(result.reasoningEffort)}</dd></div><div><dt>请求耗时</dt><dd>{duration(result.elapsedMs)}</dd></div>{result.inputTokens != null && <div><dt>Token · 输入 / 输出</dt><dd>{result.inputTokens.toLocaleString()} / {result.outputTokens?.toLocaleString() ?? '—'}</dd></div>}</dl>
     <Tabs.Root defaultValue="result"><Tabs.List className="evaluation-detail-tabs" aria-label="结果内容"><Tabs.Trigger value="result"><Image size={16}/>结果</Tabs.Trigger><Tabs.Trigger value="prompt"><FileText size={16}/>题目</Tabs.Trigger><Tabs.Trigger value="output"><Code2 size={16}/>原文</Tabs.Trigger></Tabs.List>
       <Tabs.Content value="prompt"><pre className="evaluation-raw">{result.prompt}</pre></Tabs.Content>
       <Tabs.Content value="output"><pre className="evaluation-raw">{result.output || '本次没有返回答案。'}</pre></Tabs.Content>

@@ -21,7 +21,11 @@ const GalleryCard = memo(function GalleryCard({ record, onSelect }: { record: Ev
       {html && visible ? <ArtifactPreview html={html} title={`${record.channelName} ${record.modelId} 鹈鹕动画`}/> : <div className={`evaluation-gallery-placeholder ${record.status === 'error' ? 'error' : ''}`}>{query.isPending && requested ? <LoaderCircle size={26} className="spin"/> : record.status === 'error' ? <CircleAlert size={26}/> : <Bird size={34}/>}<span>{html ? '作品已就绪' : query.error ? '预览读取失败' : record.status === 'error' ? '这次生成未完成' : query.isPending && requested ? '正在加载作品' : '暂无可预览作品'}</span>{query.error && <button className="button button-quiet" onClick={() => void query.refetch()}>重新加载</button>}</div>}
       <button className="evaluation-gallery-expand" aria-label={`查看 ${record.modelId} 鹈鹕动画 结果`} onClick={() => onSelect(record)}><Expand size={15}/><span>查看作品</span></button>
     </div>
-    <button className="evaluation-gallery-caption" onClick={() => onSelect(record)} aria-label={`${recordTime(record.createdAt)} ${record.modelId} 评测详情`}><div><strong title={record.modelId}>{record.modelId}</strong><span className="evaluation-effort">推理 {effortName(record.reasoningEffort)}</span></div><div><time dateTime={record.createdAt}>{recordTime(record.createdAt)}</time><span>{record.hasArtifact ? `耗时 ${duration(record.elapsedMs)}` : resultLabels[record.status]}</span></div></button>
+    <button className="evaluation-gallery-caption" onClick={() => onSelect(record)} aria-label={`${recordTime(record.createdAt)} ${record.modelId} 评测详情`}>
+      <div className="evaluation-gallery-model"><strong title={record.modelId}>{record.modelAlias || record.modelId}</strong><span className="evaluation-effort">推理 {effortName(record.reasoningEffort)}</span></div>
+      {record.modelAlias && record.modelAlias !== record.modelId && <span className="evaluation-gallery-model-id" title={record.modelId}>{record.modelId}</span>}
+      <div className="evaluation-gallery-result"><span className={`evaluation-gallery-status ${record.status}`}>{resultLabels[record.status]}</span><span>耗时 {duration(record.elapsedMs)}</span><time dateTime={record.createdAt}>{recordTime(record.createdAt)}</time></div>
+    </button>
   </article>;
 });
 

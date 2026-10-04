@@ -93,7 +93,7 @@ for (const mode of ['light', 'dark'] as const) {
 test('saved appearance applies before the application module executes', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.addInitScript(() => localStorage.setItem('vela:appearance:v1', 'dark'));
-  await page.route('**/src/main.tsx', (route) => route.abort());
+  await page.route((url) => url.pathname === '/src/main.tsx', (route) => route.abort());
   await page.goto('/');
   await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('#root')).toBeEmpty();

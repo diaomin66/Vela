@@ -1,32 +1,35 @@
-.update-panel { padding: 18px; border-radius: 19px; background: var(--surface-soft); }
-.update-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 17px; }
-.update-heading h3 { margin: 0; color: var(--ink); font-size: 13px; font-weight: 650; }
-.update-heading > span { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.update-status { display: flex; align-items: center; gap: 11px; }
-.update-status-icon { flex-shrink: 0; display: grid; place-items: center; width: 37px; height: 37px; border-radius: 13px; background: var(--surface-hover); color: var(--muted); }
-.update-status-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
-.update-status-copy strong { color: var(--ink); font-size: 13px; line-height: 1.5; font-weight: 550; }
-.update-status-copy > span { color: var(--muted); font-size: 10px; line-height: 1.6; }
+.update-panel { background: transparent; }
+.update-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.update-heading h3 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 650; }
+.update-heading > span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.update-status { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; }
+.update-status-icon { flex-shrink: 0; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--surface-soft); color: var(--muted); }
+.update-status-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.update-status-copy strong { color: var(--ink); font-size: 14px; line-height: 1.5; font-weight: 550; }
+.update-status-copy > span { color: var(--muted); font-size: 12px; line-height: 1.6; }
 .update-status.has-error .update-status-icon { background: var(--danger-soft); color: var(--danger); }
-.update-status .update-check { flex-shrink: 0; min-height: 32px; padding: 7px 9px; border-radius: 11px; background: var(--surface); font-size: 11px; gap: 4px; }
-.update-download { margin-top: 17px; }
+.update-status .update-check { flex-shrink: 0; min-height: 34px; padding: 7px 10px; border-radius: 10px; font-size: 12px; gap: 5px; }
+.update-download { margin-top: 16px; }
 .update-download progress { display: block; width: 100%; height: 6px; border: 0; border-radius: 10px; overflow: hidden; appearance: none; background: var(--surface-hover); accent-color: var(--accent); }
 .update-download progress::-webkit-progress-bar { background: var(--surface-hover); border-radius: 10px; }
 .update-download progress::-webkit-progress-value { background: var(--accent); border-radius: 10px; transition: width .2s; }
 .update-download progress::-moz-progress-bar { background: var(--accent); border-radius: 10px; }
-.update-download > div { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-.update-error { margin: 12px 0 0; color: var(--danger); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }
+.update-download > div { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.update-error { margin: 12px 0 0; color: var(--danger); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }
 .update-notes { margin-top: 15px; }
-.update-notes summary { display: flex; width: fit-content; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; cursor: pointer; list-style: none; border-radius: 7px; }
+.update-notes summary { display: flex; width: fit-content; align-items: center; gap: 6px; padding: 4px 0; color: var(--ink); font-size: 13px; cursor: pointer; list-style: none; border-radius: 7px; }
 .update-notes summary::-webkit-details-marker { display: none; }
 .update-notes[open] summary svg { transform: rotate(180deg); }
-.update-notes p { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 11px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 190px; overflow: auto; }
-.update-install p { margin: 15px 0 0; color: var(--ink); font-size: 11px; line-height: 1.8; }
-.update-panel .update-action { min-height: 36px; font-size: 12px; border-radius: 12px; padding: 9px 13px; margin-top: 13px; }
-.update-auto { position: relative; margin-top: 17px; padding-top: 0; color: var(--ink); font-size: 12px; }
+.update-notes p { margin: 10px 0 0; padding: 14px; border-radius: 10px; background: var(--surface-soft); color: var(--ink); font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 190px; overflow: auto; }
+.update-install p { margin: 15px 0 0; color: var(--ink); font-size: 12px; line-height: 1.8; }
+.update-panel .update-action { min-height: 40px; font-size: 13px; border-radius: 10px; padding: 9px 13px; margin-top: 13px; }
+.update-auto { margin-top: 17px; padding-top: 0; color: var(--ink); font-size: 14px; }
 .update-panel .update-auto input { right: 0; z-index: 1; }
-.update-auto > span:last-child { pointer-events: none; }
-.update-caption { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.8; }
-.app-footer .footer-update { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 9px; color: var(--ink); background: var(--surface-hover); margin-left: auto; margin-right: 14px; font-size: 10px; }
-@media (max-width: 420px) { .update-panel { padding: 15px; } .update-status { flex-wrap: wrap; gap: 10px; } .update-status .update-check { margin-left: 47px; } .update-auto input { right: 0; } .app-footer .footer-update { margin-right: 6px; } }
+.update-caption { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.app-footer .footer-update { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 8px; color: var(--ink); background: var(--surface-hover); margin-left: auto; margin-right: 14px; font-size: 12px; }
+@media (max-width: 420px) {
+  .update-status { flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .update-status .update-check { margin-left: 46px; }
+  .app-footer .footer-update { margin-right: 6px; }
+}
 @media (prefers-reduced-motion: reduce) { .update-download progress::-webkit-progress-value { transition: none; } }

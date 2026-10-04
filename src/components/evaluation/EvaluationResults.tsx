@@ -10,7 +10,17 @@ import { caseTitles, duration, effortName, recordTime, resultLabels, type Evalua
 const icons = { pelican: Bird, candy: Candy, judgment: CheckCheck };
 
 function Answers({ records, onSelect }: { records: EvaluationRecord[]; onSelect: (record: EvaluationRecord) => void }) {
-  return <div className="evaluation-answer-list" data-testid="manual-results">{records.map((record) => <button className="evaluation-answer-row" key={record.id} onClick={() => onSelect(record)}><span className={`evaluation-answer-status ${record.status}`}>{resultLabels[record.status]}</span><span className="evaluation-answer-model"><strong>{record.modelAlias || record.modelId}</strong><small>{record.channelName}{record.modelAlias && record.modelAlias !== record.modelId ? ` · ${record.modelId}` : ''}</small></span><span className="evaluation-answer-facts"><span>{effortName(record.reasoningEffort)}推理 · {duration(record.elapsedMs)}</span><time dateTime={record.createdAt}>{recordTime(record.createdAt)}</time></span><ChevronRight size={16}/></button>)}</div>;
+  return <div className="evaluation-answer-list" data-testid="manual-results">
+    <div className="evaluation-answer-columns" aria-hidden="true"><span>模型 / 渠道</span><span>结果</span><span>推理强度</span><span>耗时</span><span>检测时间</span><span/></div>
+    {records.map((record) => <button className="evaluation-answer-row" key={record.id} onClick={() => onSelect(record)}>
+      <span className="evaluation-answer-model"><strong>{record.modelAlias || record.modelId}</strong><small>{record.channelName}{record.modelAlias && record.modelAlias !== record.modelId ? ` · ${record.modelId}` : ''}</small></span>
+      <span className={`evaluation-answer-status ${record.status}`}>{resultLabels[record.status]}</span>
+      <span className="evaluation-answer-effort"><small>推理</small>{effortName(record.reasoningEffort)}</span>
+      <span className="evaluation-answer-duration"><small>耗时</small>{duration(record.elapsedMs)}</span>
+      <time className="evaluation-answer-time" dateTime={record.createdAt}>{recordTime(record.createdAt)}</time>
+      <ChevronRight size={16}/>
+    </button>)}
+  </div>;
 }
 
 export function EvaluationResults({ records, mode, caseId, onCase, loaded, refreshing, onRefresh, onSelect, onCreate }: { records: EvaluationRecord[]; mode: EvaluationMode; caseId: EvaluationCaseId; onCase: (id: EvaluationCaseId) => void; loaded: boolean; refreshing: boolean; onRefresh: () => void; onSelect: (record: EvaluationRecord) => void; onCreate: () => void }) {

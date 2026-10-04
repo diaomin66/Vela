@@ -10,7 +10,7 @@ const cases: EvaluationCaseId[] = ['pelican', 'candy', 'judgment'];
 export type EvaluationMode = 'manual' | 'scheduled';
 
 export function EvaluationHeading({ mode, ready, pending, running, onPlan, onHistory }: { mode: EvaluationMode; ready: boolean; pending: boolean; running: boolean; onPlan: () => void; onHistory: () => void }) {
-  return <div className="page-heading"><div><h1>{mode === 'manual' ? '单次检测' : '定时评测'}</h1><p className="evaluation-subtitle">{mode === 'manual' ? '选好模型，查看这一次的真实表现。' : '按计划检测，持续观察模型表现。'}</p></div><div className="evaluation-heading-actions"><button className="button evaluation-history-button" onClick={onHistory} disabled={!ready}><History size={16}/>记录</button><button className="button button-primary" disabled={!ready || pending || mode === 'manual' && running} onClick={onPlan}>{mode === 'manual' ? <Play size={15}/> : <Settings2 size={16}/>} {mode === 'manual' ? '开始检测' : '编辑计划'}</button></div></div>;
+  return <div className="page-heading"><h1>{mode === 'manual' ? '单次检测' : '定时评测'}</h1><div className="evaluation-heading-actions"><button className="button button-quiet" onClick={onHistory} disabled={!ready}><History size={16}/>记录</button><button className="button button-primary" disabled={!ready || pending || mode === 'manual' && running} onClick={onPlan}>{mode === 'manual' ? <Play size={15}/> : <Settings2 size={16}/>} {mode === 'manual' ? '开始检测' : '编辑计划'}</button></div></div>;
 }
 
 export function EvaluationToolbar({ records, channel, onChannel, onRefresh, refreshing }: { records: EvaluationRecord[]; channel: string; onChannel: (channel: string) => void; onRefresh: () => void; refreshing: boolean }) {
