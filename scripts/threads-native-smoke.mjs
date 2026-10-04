@@ -11,6 +11,7 @@ import { chromium } from '@playwright/test';
 // opens a real thread, launches an installer, or reads account credentials.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
+const expectedVersion = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
 assert.equal(path.basename(executable).toLowerCase(), 'vela.exe');
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'threads-native-'));
@@ -59,7 +60,9 @@ async function start() {
   page = browser.contexts()[0].pages()[0];
   await page.waitForFunction(() => !!window.__TAURI_INTERNALS__?.invoke);
   assert(!page.url().includes('127.0.0.1:1420'));
-  assert.equal(path.resolve((await invoke('get_dashboard')).environment.configPath), path.join(home, 'config.toml'));
+  const environmentInfo = (await invoke('get_dashboard')).environment;
+  assert.equal(environmentInfo.appVersion, expectedVersion, 'The desktop binary must match the release version');
+  assert.equal(path.resolve(environmentInfo.configPath), path.join(home, 'config.toml'));
 }
 async function stop() {
   if (browser) { await browser.close(); browser = undefined; }
