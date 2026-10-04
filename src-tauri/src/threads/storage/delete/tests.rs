@@ -90,10 +90,14 @@ fn immutable_rollout_references_and_spawn_descendants_block_delete() {
     let root = tempfile::tempdir().unwrap();
     let (paths, source, mut parent, _) = protected(root.path());
     let rollout = uuid::Uuid::new_v4().to_string();
-    parent.path = format!(
-        "{}/sessions/rollout-2026-10-04T00-00-00-{}_{}.jsonl",
-        source.root, parent.thread_id, rollout
-    );
+    parent.path = Path::new(&source.root)
+        .join("sessions")
+        .join(format!(
+            "rollout-2026-10-04T00-00-00-{}_{}.jsonl",
+            parent.thread_id, rollout
+        ))
+        .to_string_lossy()
+        .into_owned();
     let mut child = parent.clone();
     child.thread_id = uuid::Uuid::new_v4().to_string();
     child.key = "child".into();

@@ -4,13 +4,16 @@ use std::{fs, path::Path};
 
 pub(super) fn fixture(root: &Path) -> (AppPaths, ThreadSource, ThreadSummary, Vec<u8>) {
     let source = root.join("home");
+    fs::create_dir_all(&source).unwrap();
+    // Production discovery resolves the existing source before deriving its
+    // identity. Match it when TEMP contains an 8.3 Windows path alias.
+    let source = fs::canonicalize(&source).unwrap();
     let paths = AppPaths {
         data: root.join("data"),
         config: source.join("config.toml"),
         helper: root.join("helper.exe"),
-            locations: None,
+        locations: None,
     };
-    fs::create_dir_all(&source).unwrap();
     let id = uuid::Uuid::new_v4().to_string();
     let relative = format!("sessions/2026/10/04/rollout-2026-10-04T00-00-00-{id}.jsonl");
     let path = source.join(&relative);

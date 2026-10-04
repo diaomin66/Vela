@@ -147,9 +147,11 @@ fn historical_sources_resolve_their_own_config_and_fail_closed_when_invalid() {
     drop(database);
     let index = run_with_sources(&paths, ThreadIndex::default(), vec![old_home.clone()]).unwrap();
     assert_eq!(index.threads[0].state_index.as_deref(), Some("indexed"));
+    // Windows TEMP can use an 8.3 alias while discovery canonicalizes the
+    // source home. Assert the database's filesystem identity, not its spelling.
     assert_eq!(
-        PathBuf::from(index.sources[0].sqlite_home.as_ref().unwrap()),
-        sqlite_home
+        fs::canonicalize(index.sources[0].sqlite_home.as_ref().unwrap()).unwrap(),
+        fs::canonicalize(&sqlite_home).unwrap()
     );
     fs::write(old_home.join("config.toml"), "sqlite_home = 17\n").unwrap();
     let invalid = run_with_sources(&paths, ThreadIndex::default(), vec![old_home.clone()]).unwrap();
