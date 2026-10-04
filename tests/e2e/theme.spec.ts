@@ -38,6 +38,39 @@ test('appearance follows the system and persists an explicit preference across r
   await page.screenshot({ path: 'artifacts/screenshots/v7-settings-dark.png' });
 });
 
+test('header appearance shortcuts persist and stay in sync with settings radios', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  const shortcuts = page.getByRole('group', { name: '快捷外观', exact: true });
+  const dark = shortcuts.getByRole('button', { name: '切换为深色外观', exact: true });
+  const light = shortcuts.getByRole('button', { name: '切换为浅色外观', exact: true });
+  const system = shortcuts.getByRole('button', { name: '切换为跟随系统外观', exact: true });
+  await expect(system).toHaveAttribute('aria-pressed', 'true');
+  await dark.click();
+  await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(theme(page)).toHaveAttribute('data-theme-mode', 'dark');
+  await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
+  await expect(dark).toHaveAttribute('aria-pressed', 'true');
+  await expect(shortcuts.getByRole('button', { pressed: true })).toHaveCount(1);
+  await settings(page).click();
+  await expect(page.getByRole('radio', { name: '深色', exact: true })).toBeChecked();
+  await page.getByRole('radio', { name: '浅色', exact: true }).check();
+  await page.getByRole('button', { name: '关闭弹窗', exact: true }).click();
+  await expect(light).toHaveAttribute('aria-pressed', 'true');
+  await expect(dark).toHaveAttribute('aria-pressed', 'false');
+  await page.reload();
+  await expect(theme(page)).toHaveAttribute('data-theme-mode', 'light');
+  await expect(light).toHaveAttribute('aria-pressed', 'true');
+  await system.click();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(theme(page)).toHaveAttribute('data-theme-mode', 'system');
+  await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
+  await expect(system).toHaveAttribute('aria-pressed', 'true');
+  await settings(page).click();
+  await expect(page.getByRole('radio', { name: '跟随系统', exact: true })).toBeChecked();
+});
+
 for (const mode of ['light', 'dark'] as const) {
   test(`${mode} surfaces remain accessible across navigation and narrow layouts`, async ({ page }) => {
     test.setTimeout(90_000);
@@ -98,5 +131,5 @@ test('saved appearance applies before the application module executes', async ({
   await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('#root')).toBeEmpty();
   await expect(theme(page)).toHaveCSS('color-scheme', 'dark');
-  await expect(theme(page)).toHaveCSS('background-color', 'rgb(23, 25, 30)');
+  await expect(theme(page)).toHaveCSS('background-color', 'rgb(19, 19, 21)');
 });

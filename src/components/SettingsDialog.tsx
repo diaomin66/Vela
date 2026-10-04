@@ -35,7 +35,7 @@ export function SettingsDialog({ data, onClose, onSaved }: { data: Dashboard; on
     <form className="editor-form" style={page !== 'general' ? { display: 'none' } : undefined} onSubmit={save}>
       <div className="editor-scroll">
         <section className="editor-section appearance-section">
-          <fieldset className="appearance-options"><legend>外观</legend>{appearanceOptions.map(({ value, label, icon: Icon }) => <label key={value}><input type="radio" name="appearance" value={value} checked={appearance.mode === value} onChange={() => appearance.setMode(value as ThemeMode)}/><span><Icon size={19}/><strong>{label}</strong></span></label>)}</fieldset>
+          <fieldset className="appearance-options"><legend>外观</legend>{appearanceOptions.map(({ value, label, icon: Icon }) => <label key={value}><input type="radio" name="appearance" value={value} checked={appearance.mode === value} onChange={() => appearance.setMode(value as ThemeMode)}/><span><span className={`appearance-preview appearance-preview-${value}`} aria-hidden="true"><i/><i/><i/></span><span className="appearance-label"><Icon size={16}/><strong>{label}</strong></span></span></label>)}</fieldset>
         </section>
         <section className="editor-section" aria-label="常规设置">
           <div className="editor-section-heading"><h3>连接与同步</h3></div>

@@ -4,11 +4,18 @@ import type { AddressInfo } from 'node:net';
 
 const animation = `<!doctype html><html><head><style>@keyframes drift{to{transform:translateX(100px)}}#css{animation:drift 2s linear infinite}</style></head><body><svg width="400" height="200"><circle id="smil" cx="10" cy="40" r="8"><animate attributeName="cx" values="10;200;10" dur="2s" repeatCount="indefinite"/></circle><circle id="css" cx="10" cy="80" r="8"/></svg><output id="frames">0</output><output id="ticks">0</output><script>let count=0;function step(){document.getElementById('frames').textContent=String(++count);requestAnimationFrame(step)}requestAnimationFrame(step);setInterval(()=>document.getElementById('ticks').textContent=String(Number(document.getElementById('ticks').textContent)+1),25);</script></body></html>`;
 
+type FixtureWindow = Window & { fixtureViolations: { directive: string; blockedURI: string }[] };
+
 async function mount(page: Page, html: string, waitForBody = true) {
   await page.route('http://127.0.0.1:1420/', (route) => route.fulfill({ contentType: 'text/html', headers: { 'Content-Security-Policy': "frame-src 'none'; object-src 'none'; base-uri 'self'" }, body: '<!doctype html><html><body></body></html>' }));
   await page.goto('/');
   await page.evaluate(async (value) => {
     const runtime = await import('/src/lib/evaluation/' + 'artifact-document.ts');
+    const fixture = window as FixtureWindow;
+    fixture.fixtureViolations = [];
+    addEventListener('securitypolicyviolation', (event) => {
+      fixture.fixtureViolations.push({ directive: event.effectiveDirective, blockedURI: event.blockedURI });
+    });
     const host = document.createElement('div');
     const frame = document.createElement('iframe');
     frame.title = 'Artifact sandbox fixture';
@@ -20,6 +27,20 @@ async function mount(page: Page, html: string, waitForBody = true) {
   const frame = page.frameLocator('iframe');
   if (waitForBody) await expect(frame.locator('body')).toBeVisible();
   return frame;
+}
+
+async function attemptScriptNavigation(page: Page, url: string) {
+  // A timed redirect can replace the body before Playwright observes mount readiness.
+  // Arm the generated script first, then trigger the same navigation after the body is visible.
+  await mount(page, `<body>Navigation fixture<script>addEventListener('message',event=>{if(event.source===parent&&event.data==='fixture:navigate')location.href=${JSON.stringify(url)}})</script></body>`);
+  await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage('fixture:navigate', '*'));
+}
+
+async function expectBlockedNavigation(page: Page, url: string) {
+  const origin = new URL(url).origin;
+  await expect.poll(() => page.evaluate((target) => (window as FixtureWindow).fixtureViolations.some((violation) =>
+    violation.directive === 'frame-src' && (violation.blockedURI === target || violation.blockedURI.startsWith(`${target}/`))), origin),
+  { message: `The embedding policy must block navigation to ${origin}` }).toBe(true);
 }
 
 test.beforeEach(async ({ page, request }) => {
@@ -47,6 +68,7 @@ test('HTML preview plays and pauses JavaScript, SMIL and CSS together', async ({
   await expect.poll(() => frame.locator('#css').evaluate((node) => getComputedStyle(node).transform)).not.toBe('none');
   await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ type: 'vela:artifact-playback', token: 'fixture-token', playing: false }, '*'));
   await expect.poll(() => frame.locator('svg').evaluate((node) => (node as SVGSVGElement).animationsPaused())).toBe(true);
+  await expect.poll(() => frame.locator('#css').evaluate((node) => node.getAnimations().map((value) => ({ state: value.playState, pending: value.pending })))).toEqual([{ state: 'paused', pending: false }]);
   const before = await frame.locator('body').evaluate((body) => ({ frames: body.querySelector('#frames')!.textContent, ticks: body.querySelector('#ticks')!.textContent, smil: (body.querySelector('#smil') as SVGCircleElement).cx.animVal.value, css: getComputedStyle(body.querySelector('#css')!).transform }));
   await page.waitForTimeout(150);
   const after = await frame.locator('body').evaluate((body) => ({ frames: body.querySelector('#frames')!.textContent, ticks: body.querySelector('#ticks')!.textContent, smil: (body.querySelector('#smil') as SVGCircleElement).cx.animVal.value, css: getComputedStyle(body.querySelector('#css')!).transform }));
@@ -80,12 +102,12 @@ test('generated HTML cannot read parent state, invoke native commands, open link
 test('the embedding policy blocks script and meta-refresh navigation out of the preview', async ({ page }) => {
   const sent: string[] = [];
   await page.route('https://artifact-exfil.invalid/**', (route) => { sent.push(route.request().url()); return route.abort(); });
-  await mount(page, '<body>Navigation fixture<script>setTimeout(()=>location.href="https://artifact-exfil.invalid/self",100)</script></body>');
-  await page.waitForTimeout(250);
+  await attemptScriptNavigation(page, 'https://artifact-exfil.invalid/self');
+  await expectBlockedNavigation(page, 'https://artifact-exfil.invalid/self');
   expect(sent).toEqual([]);
   expect(page.url()).toContain('127.0.0.1:1420');
   await mount(page, '<meta http-equiv="refresh" content="0;url=https://artifact-exfil.invalid/refresh"><body>Refresh fixture</body>', false);
-  await page.waitForTimeout(250);
+  await expectBlockedNavigation(page, 'https://artifact-exfil.invalid/refresh');
   expect(sent).toEqual([]);
   expect(page.url()).toContain('127.0.0.1:1420');
 });
@@ -96,11 +118,11 @@ test('generated content cannot navigate to another localhost service', async ({ 
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/local-service`;
   try {
-    await mount(page, `<body>Local navigation<script>setTimeout(()=>location.href=${JSON.stringify(url)},100)</script></body>`);
-    await page.waitForTimeout(250);
+    await attemptScriptNavigation(page, url);
+    await expectBlockedNavigation(page, url);
     expect(received).toBe(0);
     await mount(page, `<meta http-equiv="refresh" content="0;url=${url}"><body>Local refresh</body>`, false);
-    await page.waitForTimeout(250);
+    await expectBlockedNavigation(page, url);
     expect(received).toBe(0);
   } finally {
     server.closeAllConnections();

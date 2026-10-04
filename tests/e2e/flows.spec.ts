@@ -117,6 +117,34 @@ test('discovery, selection, aliases and unified application preserve key privacy
   await expect(page.locator('body')).not.toContainText('demo-only-secret');
 });
 
+test('channel search matches names, API addresses and model aliases and recovers from no results', async ({ page }) => {
+  await openHome(page);
+  const search = page.getByRole('textbox', { name: '搜索渠道', exact: true });
+  const names = page.locator('.channel-card .channel-heading h2');
+  await expect(names).toHaveText(['主力渠道', '备用渠道']);
+  await search.fill(' 备用 ');
+  await expect(names).toHaveText(['备用渠道']);
+  await search.fill('API.EXAMPLE.COM');
+  await expect(names).toHaveText(['主力渠道']);
+  await search.fill('编程主力');
+  await expect(names).toHaveText(['主力渠道']);
+  await search.fill('EXAMPLE-CODE');
+  await expect(names).toHaveText(['主力渠道', '备用渠道']);
+  await page.getByRole('button', { name: '清空渠道搜索', exact: true }).click();
+  await expect(search).toHaveValue('');
+  await expect(names).toHaveText(['主力渠道', '备用渠道']);
+  await expect(page.getByRole('button', { name: '清空渠道搜索', exact: true })).toHaveCount(0);
+  await search.fill('channel-that-does-not-exist');
+  await expect(page.locator('.channel-card')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '没有匹配的渠道', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '添加渠道', exact: true })).toBeEnabled();
+  await expect(page.locator('.channel-empty')).toHaveCount(0);
+  await page.getByRole('button', { name: '清除筛选', exact: true }).click();
+  await expect(search).toHaveValue('');
+  await expect(names).toHaveText(['主力渠道', '备用渠道']);
+  await expect(page.getByRole('heading', { name: '没有匹配的渠道', exact: true })).toHaveCount(0);
+});
+
 test('model search and channel filter retain distinct same-ID entries', async ({ page }) => {
   await openHome(page);
   await nav(page, '模型库').click();

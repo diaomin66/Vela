@@ -53,7 +53,7 @@ export function ThreadsPage() {
     {threads.dashboardError && !modal && <div className="thread-inventory-repair"><div><strong>保护清单无法读取</strong><p>可根据已保存的保护副本重建 AhaX 清单，原有清单会保留。</p></div><button className="button button-quiet" disabled={threads.pending} onClick={() => open({ kind: 'rebuild' })}>从保护副本重建清单</button></div>}
     {restored && <div className="thread-completed" role="status"><Check size={17}/><span>线程文件已恢复。重新打开 Codex 后检查线程列表。</span><button className="icon-button" aria-label="关闭恢复提示" onClick={() => setRestored(false)}><X size={15}/></button></div>}
     {!data ? !threads.dashboardError && <div className="thread-loading" role="status"><LoaderCircle className="spin" size={27}/><span>正在读取线程目录</span></div> : <>
-      <section className="thread-protection" aria-label="线程保护状态">
+      <section className="thread-protection" aria-label="线程保护状态" data-enabled={!!settings?.enabled}>
         <div className="thread-protection-intro"><span className="thread-protection-mark"><ShieldCheck size={22}/></span><div>
           <h2>{threads.scanning ? '正在检查线程' : settings?.enabled ? '自动保护已开启' : '自动保护已暂停'}</h2>
           <div className="thread-protection-meta"><p>{data.protection.lastSuccessAt ? `最近保护 ${threadTime(data.protection.lastSuccessAt)}` : '完成首次扫描后开始建立保护副本'}{data.protection.bytesProtected > 0 && ` · ${formatThreadBytes(data.protection.bytesProtected)}`}</p><button className="thread-sources-button" onClick={() => open({ kind: 'sources' })}><HardDrive size={15}/>{data.sources.length} 个数据来源<ChevronRight size={14}/></button></div>

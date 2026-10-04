@@ -8,5 +8,5 @@
   document.documentElement.dataset.themeMode = mode;
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#17191e' : '#f5f5f6');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#131315' : '#f2f2f0');
 })();
