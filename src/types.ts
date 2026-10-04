@@ -1,4 +1,4 @@
-export type View = 'connections' | 'models' | 'diagnostics' | 'recovery' | 'evaluations';
+export type View = 'connections' | 'models' | 'diagnostics' | 'recovery' | 'evaluations' | 'threads';
 export type Status = 'passed' | 'warning' | 'error' | 'info';
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
 export interface NativeReasoning { multiAgentVersion: string; ultraEffort: string }

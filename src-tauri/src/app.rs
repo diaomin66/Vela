@@ -9,6 +9,7 @@ mod runtime;
 mod state;
 mod updater;
 mod evaluation;
+mod threads;
 
 use crate::core::AppPaths;
 pub use credentials::run_credential_mode;
@@ -40,11 +41,13 @@ pub fn run() {
         .manage(AppState::new(paths))
         .setup(|app| {
             let paths = app.state::<AppState>().paths.clone();
-            app.manage(crate::evaluation::EvaluationState::new(paths));
+            app.manage(crate::evaluation::EvaluationState::new(paths.clone()));
+            app.manage(crate::threads::ThreadState::new(paths));
             desktop::setup(app)?;
             metadata::start(app.handle().clone());
             updater::start(app.handle().clone());
             evaluation::start_scheduler(app.handle().clone());
+            crate::threads::start_scheduler(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -84,6 +87,17 @@ pub fn run() {
             evaluation::get_evaluation_run,
             evaluation::delete_evaluation_runs,
             evaluation::export_evaluation_run,
+            threads::get_thread_dashboard,
+            threads::scan_threads,
+            threads::get_thread_detail,
+            threads::preview_thread_restore,
+            threads::restore_thread,
+            threads::get_thread_settings,
+            threads::save_thread_settings,
+            threads::reconcile_thread_index,
+            threads::list_threads,
+            threads::rebuild_thread_inventory,
+            threads::open_thread,
             crate::artifact_preview::create_artifact_preview,
             crate::artifact_preview::release_artifact_preview
         ])

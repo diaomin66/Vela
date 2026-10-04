@@ -1,4 +1,4 @@
-import { Activity, CircleAlert, CircleCheck, FlaskConical, History, Layers3, Link2, LoaderCircle, Minus, Settings2, Square, X } from 'lucide-react';
+import { Activity, CircleAlert, CircleCheck, FlaskConical, History, Layers3, Link2, LoaderCircle, MessageSquareText, Minus, Settings2, Square, X } from 'lucide-react';
 import { useRef } from 'react';
 import { desktop } from './lib/api';
 import { errorMessage } from './lib/utils';
@@ -9,12 +9,13 @@ import { ChannelsPage } from './pages/ChannelsPage';
 import { DiagnosticsPage } from './pages/DiagnosticsPage';
 import { RecoveryPage } from './pages/RecoveryPage';
 import { EvaluationPage } from './pages/EvaluationPage';
+import { ThreadsPage } from './pages/ThreadsPage';
 import { useWorkspace } from './hooks/useWorkspace';
 import { UpdateBadge } from './components/UpdatePanel';
 import type { View } from './types';
 import { APP_NAME } from './lib/brand';
 
-const navigation = [{ id: 'connections', label: '渠道', icon: Link2 }, { id: 'models', label: '模型库', icon: Layers3 }, { id: 'evaluations', label: '评测', icon: FlaskConical }, { id: 'diagnostics', label: '诊断', icon: Activity }, { id: 'recovery', label: '恢复', icon: History }] as const;
+const navigation = [{ id: 'connections', label: '渠道', icon: Link2 }, { id: 'models', label: '模型库', icon: Layers3 }, { id: 'evaluations', label: '评测', icon: FlaskConical }, { id: 'threads', label: '线程', icon: MessageSquareText }, { id: 'diagnostics', label: '诊断', icon: Activity }, { id: 'recovery', label: '恢复', icon: History }] as const;
 
 function WindowControls() {
   if (!desktop) return null;
@@ -37,11 +38,12 @@ export default function App() {
         {w.view === 'connections' && <ChannelsPage workspace={w}/>}
         {w.view === 'models' && <ModelLibrary data={w.data} busy={w.busy} onApply={(routeId) => void w.prepareGateway(routeId)} onEdit={w.openEditor} onValidate={w.openValidation} onAdd={() => w.openEditor()} onReasoningChange={w.setModelReasoning}/>}
         {w.view === 'evaluations' && <EvaluationPage workspace={w.data}/>}
+        {w.view === 'threads' && <ThreadsPage/>}
         {w.view === 'diagnostics' && <DiagnosticsPage workspace={w}/>}
         {w.view === 'recovery' && <RecoveryPage backups={w.data.backups} busy={w.busy} onRestore={(backup) => void w.prepareRestore(backup)}/>}
       </>}
     </main>
-    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>{APP_NAME} {w.data?.environment.appVersion ?? '0.7.0'}</button></footer>
+    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>{APP_NAME} {w.data?.environment.appVersion ?? '0.8.0'}</button></footer>
     <WorkspaceModals workspace={w}/>
     {w.toast && <div className={`toast ${w.toast.error ? 'toast-error' : ''}`} role={w.toast.error ? 'alert' : 'status'}>{w.toast.error ? <CircleAlert size={18}/> : <CircleCheck size={18}/>}<span>{w.toast.message}</span><button className="icon-button" aria-label="关闭提示" onClick={() => w.setToast(null)}><X size={15}/></button></div>}
   </div>;

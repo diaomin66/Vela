@@ -22,8 +22,7 @@
 ## 参考与核对
 
 - OpenAI 配置参考：<https://developers.openai.com/codex/config-reference>。核对 `model_catalog_json` 和 `model_reasoning_effort` 的字符串类型，以及 `forced_login_method = chatgpt | api`。推理强度具体选项由模型和客户端决定，本次检查不新增硬编码档位限制。
-- AiMaMi 公开源码：<https://github.com/borawong/AiMaMi>，核对 main `add37271e29ba81ee17f15f444a24925af50bb87` 与 v1.2.1 `297c7af56f10fb371b77bc9b6b65aa320afcbe7e`。`src/components/maintenance/maintenance-page.tsx` 将诊断、清理、注册表重建与重启分成独立动作；`src-tauri/src/core/repository.rs` 的 `diagnose` 返回平台、版本、账号与 API 状态。
-- AiMaMi 发行说明：<https://github.com/borawong/AiMaMi/releases/tag/v1.2.1>，说明了路由/线程恢复、虚拟账号残留处理与脱敏诊断报告。上述公开源码快照未找到对应路由诊断实现，因此仅借鉴有记录的问题分类、分离操作与脱敏反馈，不声称移植或验证其未公开实现。
+- 线程存储检查、快照与找回由独立子系统处理，规则见 [线程保护与找回](THREADS.md)。诊断页面不自动重写线程 provider 或原始记录。
 
 ## 验证
 

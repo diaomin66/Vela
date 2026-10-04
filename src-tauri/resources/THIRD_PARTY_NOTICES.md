@@ -1,4 +1,4 @@
-# Third-party material included in Vela
+# Third-party material included in AhaX
 
 ## OpenAI Codex fallback instructions
 
@@ -18,3 +18,14 @@
 Vela embeds this text in generated Codex model catalogs because an authoritative custom catalog must provide model instructions. A short replacement instruction would remove Codex's normal coding guidance. This vendored fallback preserves the complete upstream fallback text; it is not a claim that every routed third-party model has the capabilities or model-specific instructions of an official model.
 
 The source file, license, and upstream notice are unchanged. Review the upstream model catalog schema and fallback behavior before updating this pinned copy. Do not download replacement instructions at runtime.
+
+## Thread storage dependencies
+
+The thread subsystem uses the installed versions pinned in `Cargo.lock`:
+
+- `rusqlite` 0.40.2, MIT; copyright 2014 The rusqlite developers. License included as `LICENSE.rusqlite`.
+- Bundled SQLite through `libsqlite3-sys` 0.38.2. SQLite itself is in the public domain.
+- `zstd` 0.13.3 and its Rust bindings, MIT. License included as `LICENSE.zstd-rs`.
+- Zstandard 1.5.7 through `zstd-sys` 2.1.0, BSD-3-Clause; copyright Meta Platforms, Inc. and affiliates. License included as `LICENSE.zstandard`.
+
+These libraries provide SQLite transactions/online backup and decoding of compressed local history. AhaX's inventory, snapshot manifests, recovery policy, protocol adapter, and interface are separate implementations.

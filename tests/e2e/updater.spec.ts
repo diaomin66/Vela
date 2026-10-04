@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, request }) => {
   }
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '渠道管理', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
 });
 
 test('preview update stays in memory and waits for the user to install', async ({ page }) => {
@@ -43,7 +43,7 @@ test('automatic download preference saves independently of channel settings', as
   const panel = page.getByRole('region', { name: '软件更新', exact: true });
   await panel.getByRole('checkbox', { name: '自动下载新版本', exact: true }).uncheck();
   await page.getByRole('button', { name: '取消', exact: true }).click();
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await expect(panel.getByRole('checkbox', { name: '自动下载新版本', exact: true })).not.toBeChecked();
   await panel.getByRole('button', { name: '检查更新', exact: true }).click();
   await expect(panel.getByText('发现新版本', { exact: true })).toBeVisible();

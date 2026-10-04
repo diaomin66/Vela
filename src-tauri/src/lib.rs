@@ -7,6 +7,7 @@ pub mod discovery;
 pub mod gateway;
 pub mod evaluation;
 pub mod artifact_preview;
+pub mod threads;
 mod reasoning;
 mod security;
 
