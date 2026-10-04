@@ -410,6 +410,81 @@ fn sqlite_schema_read_is_optional_and_identifies_selected_rollout() {
 
 #[cfg(windows)]
 #[test]
+fn sqlite_selected_rollout_resolves_windows_short_path_aliases() {
+    use std::{
+        ffi::OsString,
+        os::windows::ffi::{OsStrExt, OsStringExt},
+    };
+    use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+
+    let (_directory, paths, root) = fixture();
+    let first = rollout(&root, FIRST_ID, false, "");
+    let selected = rollout(&root, FIRST_ID, false, &format!("_{SECOND_ID}"));
+    fs::write(&first, document(FIRST_ID)).unwrap();
+    fs::write(&selected, document(FIRST_ID)).unwrap();
+    let wide: Vec<_> = selected.as_os_str().encode_wide().chain(Some(0)).collect();
+    let needed = unsafe { GetShortPathNameW(wide.as_ptr(), std::ptr::null_mut(), 0) };
+    assert!(
+        needed > 0,
+        "GetShortPathNameW size query failed: {}",
+        std::io::Error::last_os_error()
+    );
+    let mut buffer = vec![0u16; needed as usize];
+    let length = unsafe { GetShortPathNameW(wide.as_ptr(), buffer.as_mut_ptr(), needed) };
+    assert!(
+        length > 0 && length < needed,
+        "GetShortPathNameW failed: {}",
+        std::io::Error::last_os_error()
+    );
+    let short = PathBuf::from(OsString::from_wide(&buffer[..length as usize]));
+    let canonical = fs::canonicalize(&selected).unwrap();
+    if files::normalized_path(&short) == files::normalized_path(&canonical) {
+        eprintln!("This volume does not expose a distinct 8.3 alias; the regular SQLite path test covers canonical names.");
+        return;
+    }
+    eprintln!(
+        "Validating distinct Windows 8.3 rollout alias: {}",
+        short.display()
+    );
+    assert_eq!(fs::canonicalize(&short).unwrap(), canonical);
+
+    let database = root.join("state_5.sqlite");
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    connection
+        .execute_batch("CREATE TABLE threads(id TEXT PRIMARY KEY, rollout_path TEXT, title TEXT);")
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO threads VALUES(?1,?2,?3)",
+            rusqlite::params![FIRST_ID, short.to_string_lossy(), "短路径索引标题"],
+        )
+        .unwrap();
+    drop(connection);
+    let before = fs::read(&database).unwrap();
+    let index = ThreadIndex {
+        settings: ThreadSettings {
+            enabled: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let scanned = run_with_sources(&paths, index, vec![root]).unwrap();
+    let selected_threads: Vec<_> = scanned
+        .threads
+        .iter()
+        .filter(|thread| thread.selected_rollout == Some(true))
+        .collect();
+    assert_eq!(selected_threads.len(), 1);
+    assert_eq!(
+        fs::canonicalize(&selected_threads[0].path).unwrap(),
+        canonical
+    );
+    assert_eq!(selected_threads[0].title.as_deref(), Some("短路径索引标题"));
+    assert_eq!(fs::read(database).unwrap(), before);
+}
+
+#[cfg(windows)]
+#[test]
 fn stable_prefix_is_protected_and_source_bytes_never_change() {
     let (_directory, paths, root) = fixture();
     let path = rollout(&root, FIRST_ID, false, "");

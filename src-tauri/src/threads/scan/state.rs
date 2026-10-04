@@ -28,8 +28,7 @@ impl StateIndex {
                 thread.state_index = Some("indexed".into());
                 let stored = Path::new(&row.path);
                 let actual = Path::new(&thread.path);
-                let selected = files::normalized_path(stored).trim_end_matches(".zst")
-                    == files::normalized_path(actual).trim_end_matches(".zst");
+                let selected = rollout_identity(stored) == rollout_identity(actual);
                 thread.selected_rollout = Some(selected);
                 if selected
                     && !thread.index_present
@@ -49,6 +48,15 @@ impl StateIndex {
             }
         }
     }
+}
+
+fn rollout_identity(path: &Path) -> String {
+    // SQLite may retain Windows 8.3 aliases while discovery uses long paths.
+    // Keep the lexical fallback for records whose source file is now missing.
+    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    files::normalized_path(&resolved)
+        .trim_end_matches(".zst")
+        .to_owned()
 }
 
 pub(super) fn read(root: &Path, sqlite_home: Option<&Path>) -> StateIndex {
@@ -106,4 +114,20 @@ fn read_rows(root: &Path) -> Result<HashMap<String, Row>, rusqlite::Error> {
         }
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_rollout_paths_keep_the_lexical_fallback_and_compression_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let plain = directory.path().join("missing").join("rollout.jsonl");
+        let compressed = plain.with_extension("jsonl.zst");
+        assert!(!plain.exists());
+        assert!(!compressed.exists());
+        assert_eq!(rollout_identity(&plain), files::normalized_path(&plain));
+        assert_eq!(rollout_identity(&plain), rollout_identity(&compressed));
+    }
 }

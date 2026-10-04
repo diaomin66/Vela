@@ -43,7 +43,7 @@ export default function App() {
         {w.view === 'recovery' && <RecoveryPage backups={w.data.backups} busy={w.busy} onRestore={(backup) => void w.prepareRestore(backup)}/>}
       </>}
     </main>
-    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>{APP_NAME} {w.data?.environment.appVersion ?? '0.8.0'}</button></footer>
+    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>{APP_NAME} {w.data?.environment.appVersion ?? '0.8.1'}</button></footer>
     <WorkspaceModals workspace={w}/>
     {w.toast && <div className={`toast ${w.toast.error ? 'toast-error' : ''}`} role={w.toast.error ? 'alert' : 'status'}>{w.toast.error ? <CircleAlert size={18}/> : <CircleCheck size={18}/>}<span>{w.toast.message}</span><button className="icon-button" aria-label="关闭提示" onClick={() => w.setToast(null)}><X size={15}/></button></div>}
   </div>;

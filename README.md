@@ -2,15 +2,15 @@
 
 Windows 上的 Codex 渠道、模型与配置助手。安装后从桌面打开，添加第三方 API 地址和 Key，发现并启用模型，再将统一模型库接入官方 Codex。日常编程任务仍在官方客户端中完成。
 
-当前版本：**0.8.0 Beta**。面向日常使用的 Windows 桌面工具，包含渠道、模型库、评测、线程、诊断、恢复六个工作区，以及浅色、深色和跟随系统的外观模式。用户不需要安装 Node.js、Rust 或开发工具。
+当前版本：**0.8.1 Beta**。面向日常使用的 Windows 桌面工具，包含渠道、模型库、评测、线程、诊断、恢复六个工作区，以及浅色、深色和跟随系统的外观模式。用户不需要安装 Node.js、Rust 或开发工具。
 
-[下载最新版](https://github.com/diaomin66/Vela/releases/latest) · [线程保护与找回](docs/THREADS.md) · [模型推理能力与官方依据](docs/model-capabilities.md) · [模型评测说明](docs/EVALUATIONS.md) · [诊断与修复](docs/DIAGNOSTICS.md) · [常见问题](docs/TROUBLESHOOTING.md) · [发布说明](docs/releases/0.8.0.md)
+[下载最新版](https://github.com/diaomin66/Vela/releases/latest) · [线程保护与找回](docs/THREADS.md) · [模型推理能力与官方依据](docs/model-capabilities.md) · [模型评测说明](docs/EVALUATIONS.md) · [诊断与修复](docs/DIAGNOSTICS.md) · [常见问题](docs/TROUBLESHOOTING.md) · [发布说明](docs/releases/0.8.1.md)
 
 AhaX 是 Vela 的新产品名称。仓库与更新源仍为 `diaomin66/Vela`；已有渠道、凭据、模型路由和数据目录继续使用兼容标识，无需因为改名重新添加 Key。安装器包含沿用旧安装路径的迁移处理，具体安装与升级验收范围以 [0.7.0 验收记录](docs/validation/0.7.0.md) 为准。
 
 ## 安装与使用
 
-1. 从系统托盘退出已运行的 AhaX 或 Vela，下载并双击 `AhaX_0.8.0_x64-setup.exe`，安装后从桌面或开始菜单打开。0.4 及之后的版本也可在设置中使用内置更新。
+1. 从系统托盘退出已运行的 AhaX 或 Vela，下载并双击 `AhaX_0.8.1_x64-setup.exe`，安装后从桌面或开始菜单打开。0.4 及之后的版本也可在设置中使用内置更新。
 2. 添加渠道名称、API 地址、API Key。点击「拉取模型与余额」保存渠道并读取元数据。
 3. 启用需要的模型，也可手动添加模型 ID。点击模型右侧的设置入口，修改显示备注、推理档位和默认强度。自动发现的新模型默认不启用。
 4. 在「模型库」预览并接入 Codex。模型显示为 `渠道名称（模型 ID）`；填写备注时为 `渠道名称 · 备注（模型 ID）`。
@@ -30,7 +30,7 @@ AhaX 是 Vela 的新产品名称。仓库与更新源仍为 `diaomin66/Vela`；�
 - 单条与批量预览找回，目标存在不同内容时拒绝覆盖；损坏的较新副本不会覆盖较早完整副本。
 - 官方列表重新索引与 AhaX 保护清单重建分开处理，不直接改写官方数据库结构。
 
-保护范围、使用方式和实际边界见 [线程保护与找回](docs/THREADS.md)，实现分层见 [线程架构](docs/THREAD_ARCHITECTURE.md)，实际验证见 [0.8.0 验收记录](docs/validation/0.8.0.md)。本地快照不能替代跨设备灾备，也不能凭空还原首次保护前已永久删除的消息。
+保护范围、使用方式和实际边界见 [线程保护与找回](docs/THREADS.md)，实现分层见 [线程架构](docs/THREAD_ARCHITECTURE.md)，实际验证见 [0.8.1 验收记录](docs/validation/0.8.1.md)。本地快照不能替代跨设备灾备，也不能凭空还原首次保护前已永久删除的消息。
 
 ## 0.7 的主要变化
 
