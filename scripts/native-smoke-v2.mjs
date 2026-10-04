@@ -139,12 +139,12 @@ async function reopenViaSecondInstance() {
     cwd: path.dirname(executable), windowsHide: true, stdio: 'ignore', env: environment,
   });
   await new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error('A second Vela process did not exit after waking the original window.')), 10000);
+    const deadline = setTimeout(() => reject(new Error('A second AhaX process did not exit after waking the original window.')), 10000);
     secondInstance.once('error', (error) => { clearTimeout(deadline); reject(error); });
     secondInstance.once('close', (code) => {
       clearTimeout(deadline);
       if (code === 0) resolve();
-      else reject(new Error(`The second Vela process exited with status ${code}.`));
+      else reject(new Error(`The second AhaX process exited with status ${code}.`));
     });
   });
   await waitForWindowVisibility(true);
@@ -209,6 +209,18 @@ try {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   assert(!page.url().includes('127.0.0.1:1420'), 'Native release must use its packaged UI.');
+  await page.getByRole('button', { name: 'AhaX 主页', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('radio', { name: '深色', exact: true }).check();
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  await page.reload();
+  await page.getByRole('button', { name: 'AhaX 主页', exact: true }).waitFor();
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  assert.equal(await page.evaluate(() => localStorage.getItem('vela:appearance:v1')), 'dark');
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('radio', { name: '浅色', exact: true }).check();
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
   const initial = await invoke('get_dashboard');
   assert.equal(initial.environment.desktopMode, true);
   assert.equal(path.resolve(initial.environment.configPath), configPath);
@@ -359,6 +371,20 @@ try {
   assert.equal(repairedDashboard.gatewayApplied, true);
   const repairedReport = await invoke('run_diagnostics', { runId: randomUUID(), includeNetwork: false });
   assert(!repairedReport.items.some((item) => item.id === 'gateway-routing-mismatch'));
+  assert.equal(repairedReport.items.find((item) => item.id === 'gateway-catalog-file')?.status, 'passed');
+  assert.equal(repairedReport.items.find((item) => item.id === 'recovery-point')?.status, 'passed');
+  await writeFile(catalogPath, '{"damaged-fixture":true}');
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '诊断', exact: true }).click();
+  await page.getByRole('button', { name: '开始检查', exact: true }).click();
+  await page.getByRole('heading', { name: '模型目录文件需要重建', exact: true }).waitFor();
+  await page.getByRole('button', { name: '预览修复', exact: true }).click();
+  await page.getByRole('button', { name: '确认并修复', exact: true }).click();
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
+  await page.getByRole('heading', { name: '检查完成', exact: true }).waitFor();
+  assert.equal(await page.getByRole('heading', { name: '模型目录文件需要重建', exact: true }).count(), 0);
+  assert.equal(await readFile(catalogPath, 'utf8'), catalogContents);
+  assert.equal(await readFile(configPath, 'utf8'), repaired);
+  await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', `ahax-native-${version}-diagnostics.png`) });
 
   const directPreview = await invoke('preview_profile', { id: channels[0].profileId });
   await invoke('apply_profile', { id: channels[0].profileId, expectedHash: directPreview.expectedHash });
@@ -393,7 +419,7 @@ try {
     assert.equal((await list.getByRole('option', { selected: true }).innerText()).trim(), effortLabels[channel.defaultEffort]);
     if (index === 0) {
       await page.evaluate(() => document.fonts.ready);
-      await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', `vela-native-${version}-models.png`) });
+      await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', `ahax-native-${version}-models.png`) });
     }
     await page.keyboard.press('Escape');
     await list.waitFor({ state: 'hidden' });
@@ -480,14 +506,14 @@ try {
   restored = true;
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', 'vela-native-v2.png') });
+  await page.screenshot({ path: path.join(root, 'artifacts', 'screenshots', `ahax-native-${version}-workspace.png`) });
   for (const id of createdProfiles) {
     await invoke('delete_profile', { id });
     createdProfiles.delete(id);
   }
   assert.equal((await invoke('get_dashboard')).profiles.length, 0);
   assert.deepEqual(errors, []);
-  console.log(`Vela ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, provider mismatch diagnosis and repair preserving the current route, direct-provider catalog cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
+  console.log(`AhaX ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, provider mismatch diagnosis and repair preserving the current route, direct-provider catalog cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
   console.log('Only temporary local services, synthetic channel keys, and an isolated CODEX_HOME were used.');
 } finally {
   if (page) {

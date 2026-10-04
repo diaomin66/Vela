@@ -16,7 +16,7 @@ test.beforeEach(async ({ page, request }: { page: Page; request: APIRequestConte
     if (!['document', 'script', 'stylesheet', 'font', 'image'].includes(input.resourceType())) return route.continue();
     const url = new URL(input.url());
     if (url.hostname !== '127.0.0.1' || url.port !== '1420') return route.continue();
-    const response = await request.get(input.url(), { maxRedirects: 0 });
+    const response = await request.get(input.url(), { maxRedirects: 0, headers: { accept: input.headers().accept ?? '*/*' } });
     const headers = response.headers();
     for (const name of ['connection', 'content-encoding', 'content-length', 'transfer-encoding']) delete headers[name];
     await route.fulfill({ status: response.status(), headers, body: await response.body() });
@@ -201,7 +201,7 @@ test('unsafe remote HTTP is rejected before discovery or saving', async ({ page 
 
 test('settings persist provider, port and refresh choices and require reapplication', async ({ page }) => {
   await openHome(page);
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await expect(page.getByLabel('服务商显示名称')).toHaveValue('Vela');
   await page.getByLabel('服务商显示名称').fill('Vela Studio');
   await selectOption(page, page.getByRole('combobox', { name: '同步间隔', exact: true }), '30 分钟');
@@ -213,7 +213,7 @@ test('settings persist provider, port and refresh choices and require reapplicat
   await page.getByRole('button', { name: '保存设置', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.connection-status')).toContainText('有更改待同步');
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await expect(page.getByLabel('服务商显示名称')).toHaveValue('Vela Studio');
   await page.getByRole('button', { name: '连接与存储', exact: true }).click();
   await expect(page.getByLabel('本地服务端口')).toHaveValue('19001');
@@ -226,7 +226,7 @@ test('settings persist provider, port and refresh choices and require reapplicat
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await nav(page, '渠道').click();
   await expect(page.locator('.connection-status')).toContainText('已同步至 Codex');
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await page.getByRole('button', { name: '连接与存储', exact: true }).click();
   await expect(page.getByLabel('本地服务端口')).toHaveValue('19001');
 });
@@ -385,7 +385,7 @@ test('model editor and expanded custom balance fields satisfy WCAG checks', asyn
 test('settings, verification and configuration preview satisfy WCAG checks', async ({ page }) => {
   test.setTimeout(60000);
   await openHome(page);
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await checkAccessibility(page, '后台设置');
   await page.getByRole('button', { name: '关闭弹窗' }).click();
   await nav(page, '模型库').click();
@@ -415,7 +415,7 @@ test('390px layout fits all pages, model editor, custom fields and settings', as
   await page.getByRole('option', { name: '自定义接口', exact: true }).click();
   await checkWidth(page, '自定义余额');
   await page.getByRole('button', { name: '关闭弹窗' }).click();
-  await page.getByRole('button', { name: 'Vela 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
   await checkWidth(page, '设置');
   await page.getByRole('combobox', { name: '同步间隔', exact: true }).click();
   await checkWidth(page, '同步间隔下拉');

@@ -195,7 +195,7 @@ pub fn render(
             });
         if !managed {
             return Err(
-                "配置中已存在同名的其他服务商，请在设置中选择不同的 Vela 服务商名称。".into(),
+                "配置中已存在同名的其他服务商，请在设置中选择不同的本机服务商名称。".into(),
             );
         }
     }
@@ -252,7 +252,7 @@ pub fn preview(paths: &AppPaths, default: Option<&str>) -> Result<ChangePreview,
     let route = selected_route(&store, default)?;
     let current = core::read_config(paths)?;
     let proposed = render(core::config_text(&current)?, paths, &store, &route)?;
-    Ok(ChangePreview{id:uuid::Uuid::new_v4().to_string(),title:"同步所有模型到 Codex".into(),summary:"应用统一服务商与模型目录，Vela 在托盘中继续转发请求。应用后请彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，切换模型不会同时切换服务商。".into(),changes:vec![Change{label:"服务商".into(),before:"当前配置".into(),after:store.settings.provider_name.clone()},Change{label:"可选模型".into(),before:"当前模型目录".into(),after:format!("{} 个已启用模型",entries(&store.profiles).iter().filter(|e|e.enabled).count())},Change{label:"默认模型".into(),before:"当前默认模型".into(),after:entries(&store.profiles).iter().find(|e|e.route_id==route).map(|e|e.display_name.clone()).unwrap_or_default()}],expected_hash:fingerprint(&current,&proposed,&store)?,profile_id:None,backup_id:None})
+    Ok(ChangePreview{id:uuid::Uuid::new_v4().to_string(),title:"同步所有模型到 Codex".into(),summary:"应用统一服务商与模型目录，AhaX 在托盘中继续转发请求。应用后请彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，切换模型不会同时切换服务商。".into(),changes:vec![Change{label:"服务商".into(),before:"当前配置".into(),after:store.settings.provider_name.clone()},Change{label:"可选模型".into(),before:"当前模型目录".into(),after:format!("{} 个已启用模型",entries(&store.profiles).iter().filter(|e|e.enabled).count())},Change{label:"默认模型".into(),before:"当前默认模型".into(),after:entries(&store.profiles).iter().find(|e|e.route_id==route).map(|e|e.display_name.clone()).unwrap_or_default()}],expected_hash:fingerprint(&current,&proposed,&store)?,profile_id:None,backup_id:None})
 }
 pub fn apply(paths: &AppPaths, default: Option<&str>, expected: &str) -> Result<Backup, String> {
     let _lock = paths.lock()?;

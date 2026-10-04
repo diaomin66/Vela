@@ -2,6 +2,7 @@
 mod artifact;
 mod cases;
 mod client;
+mod deletion;
 mod runner;
 mod scheduler;
 mod storage;
@@ -245,7 +246,24 @@ impl EvaluationState {
         }
         storage::read_run(&self.paths, id)
     }
+    pub(crate) fn remove(&self, ids: &[String]) -> Result<EvaluationDashboard, String> {
+        {
+            let mut runtime = self.runtime.lock().map_err(|_| "评测状态不可用。")?;
+            if runtime
+                .active
+                .as_ref()
+                .is_some_and(|run| ids.contains(&run.id))
+            {
+                return Err("正在运行的评测不能删除，请先取消并等待结束。".into());
+            }
+            if let Some(warning) = deletion::remove(&self.paths, ids)? {
+                runtime.error = Some(warning);
+            }
+        }
+        self.dashboard()
+    }
     pub(crate) fn export(&self, id: &str) -> Result<EvaluationExport, String> {
+        let _runtime = self.runtime.lock().map_err(|_| "评测状态不可用。")?;
         storage::export(&self.paths, id)
     }
     pub(crate) fn tick(&self) {

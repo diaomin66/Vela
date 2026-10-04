@@ -75,9 +75,9 @@ pub(super) async fn run_diagnostics(
         report.items.push(diagnostics::DiagnosticItem {
             id: "gateway-routing-mismatch".into(),
             category: "configuration".into(),
-            title: "Vela 模型与当前服务商不匹配".into(),
+            title: "统一模型与当前服务商不匹配".into(),
             status: "error".into(),
-            description: "当前配置使用已知 Vela 路由模型或 Vela 生成的目录，但实际服务商没有连接到对应的本机网关，渠道可能收到无法识别的模型标识。".into(),
+            description: "当前配置使用已知的受管路由模型或模型目录，但实际服务商没有连接到对应的本机网关，渠道可能收到无法识别的模型标识。".into(),
             action: Some("预览修复或重新同步统一模型目录。完成后彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，单独切换模型不会切换服务商。".into()),
             repairable: true,
         });
@@ -102,7 +102,7 @@ pub(super) async fn run_diagnostics(
             description: if running {
                 "窗口关闭后网关仍在托盘运行，使用独立本地凭据认证。"
             } else {
-                "本地转发服务未运行，请检查端口占用或重新启动 Vela。"
+                "本地转发服务未运行，请检查端口占用或重新启动 AhaX。"
             }
             .into(),
             action: None,
@@ -146,13 +146,18 @@ pub(super) async fn run_diagnostics(
             }
         }
     }
+    report.items.extend(diagnostics::inspect_local_system(
+        &state.paths,
+        &store,
+        catalog::is_gateway_config(config_text),
+    ));
     let (run, receiver) = register_run(state, run_id)?;
     report.id = run.id().into();
     if let (true, Some(profile), Some(Ok(_))) = (include_network.unwrap_or(false), active, key) {
         let (profile, key) = core::load_validation_profile(&state.paths, &profile.id)?;
         let validation = diagnostics::validate_connection(
             diagnostics::ValidationInput {
-                endpoint: profile.base_url.clone(),
+                endpoint: profile.resolved_base_url.clone().unwrap_or(profile.base_url.clone()),
                 model: profile.model.clone(),
                 key: key.to_string(),
             },
@@ -172,7 +177,11 @@ pub(super) async fn run_diagnostics(
         .iter()
         .filter(|item| item.status == "warning")
         .count();
-    report.can_repair = report.items.iter().any(|item| item.repairable)
+    let blocked = report.items.iter().any(|item| item.status == "error" && (
+        matches!(item.id.as_str(), "config-readonly" | "gateway-helper" | "gateway-models-empty" | "credential" | "credential-helper")
+        || item.id.starts_with("gateway-key-")
+    ));
+    report.can_repair = !blocked && report.items.iter().any(|item| item.repairable)
         && core::preview_repair(&state.paths).is_ok();
     report.summary = if errors > 0 {
         format!("发现 {errors} 项需要处理的问题和 {warnings} 项提醒。")

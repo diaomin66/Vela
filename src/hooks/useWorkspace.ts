@@ -88,6 +88,7 @@ export function useWorkspace() {
   }
   async function applyChange() {
     if (modal?.type !== 'change') return;
+    const operation = modal.operation;
     setBusy(true); setModalError(null);
     try {
       if (modal.operation === 'gateway') await api.applyGateway(modal.targetId, modal.preview.expectedHash);
@@ -95,6 +96,7 @@ export function useWorkspace() {
       else await api.repair(modal.preview.expectedHash);
       await refresh(); setModal(null); setReport(null);
       notify(desktop ? '已备份并更新配置。请彻底退出并重开 Codex，再新建会话；旧会话可能保留原服务商。' : '演示配置已更新，本机配置未改变。');
+      if (operation === 'repair') await diagnose();
     } catch (err) { setModalError(errorMessage(err)); }
     finally { setBusy(false); }
   }

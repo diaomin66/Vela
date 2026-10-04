@@ -10,6 +10,7 @@ const native: EvaluationApi = {
   save: (plan) => invoke('save_evaluation_plan', { plan }),
   start: (plan) => invoke('start_evaluation', { plan }),
   cancel: (runId) => invoke('cancel_evaluation', { runId }),
+  remove: (runIds) => invoke('delete_evaluation_runs', { runIds }),
   run: (runId) => invoke('get_evaluation_run', { runId }),
   export: (runId) => invoke('export_evaluation_run', { runId }),
 };

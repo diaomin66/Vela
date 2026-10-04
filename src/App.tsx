@@ -12,6 +12,7 @@ import { EvaluationPage } from './pages/EvaluationPage';
 import { useWorkspace } from './hooks/useWorkspace';
 import { UpdateBadge } from './components/UpdatePanel';
 import type { View } from './types';
+import { APP_NAME } from './lib/brand';
 
 const navigation = [{ id: 'connections', label: '渠道', icon: Link2 }, { id: 'models', label: '模型库', icon: Layers3 }, { id: 'evaluations', label: '评测', icon: FlaskConical }, { id: 'diagnostics', label: '诊断', icon: Activity }, { id: 'recovery', label: '恢复', icon: History }] as const;
 
@@ -27,9 +28,9 @@ export default function App() {
   function navigate(view: View) { w.navigate(view); main.current?.scrollTo({ top: 0 }); }
   return <div className="app-shell">
     <header className="app-header" data-tauri-drag-region>
-      <button className="brand" aria-label="Vela 主页" onClick={() => navigate('connections')}><BrandMark/><span>Vela</span></button>
+      <button className="brand" aria-label={`${APP_NAME} 主页`} onClick={() => navigate('connections')}><BrandMark/><span>{APP_NAME}</span></button>
       <nav className="navigation" aria-label="主导航">{navigation.map(({ id, label, icon: Icon }) => <button key={id} aria-current={w.view === id ? 'page' : undefined} className={w.view === id ? 'nav-active' : ''} onClick={() => navigate(id)}><Icon size={17}/>{label}</button>)}</nav>
-      <div className="header-right"><button className="icon-button settings-button" aria-label="Vela 设置" onClick={() => w.setModal({ type: 'settings' })}><Settings2 size={19}/></button><WindowControls/></div>
+      <div className="header-right"><button className="icon-button settings-button" aria-label={`${APP_NAME} 设置`} onClick={() => w.setModal({ type: 'settings' })}><Settings2 size={19}/></button><WindowControls/></div>
     </header>
     <main ref={main} className="main-content" id="workspace" tabIndex={-1}>
       {!w.data ? <div className="loading-page">{w.loadError ? <><CircleAlert size={27}/><h1>无法读取配置</h1><p>{w.loadError}</p><button className="button button-primary" onClick={() => void w.refresh().catch((err: unknown) => w.notify(errorMessage(err), true))}>重试</button></> : <LoaderCircle className="spin" size={27}/>}</div> : <>
@@ -40,7 +41,7 @@ export default function App() {
         {w.view === 'recovery' && <RecoveryPage backups={w.data.backups} busy={w.busy} onRestore={(backup) => void w.prepareRestore(backup)}/>}
       </>}
     </main>
-    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>Vela {w.data?.environment.appVersion ?? '0.6.0'}</button></footer>
+    <footer className="app-footer"><span className="footer-status"><span className={`status-dot ${w.data?.gateway.running ? 'online' : 'offline'}`}/>{desktop ? w.data?.gateway.running ? '后台运行中' : '后台未就绪' : '演示模式 · 不修改本机配置'}</span><UpdateBadge onOpen={() => w.setModal({ type: 'settings' })}/><button onClick={() => w.setModal({ type: 'settings' })}>{APP_NAME} {w.data?.environment.appVersion ?? '0.7.0'}</button></footer>
     <WorkspaceModals workspace={w}/>
     {w.toast && <div className={`toast ${w.toast.error ? 'toast-error' : ''}`} role={w.toast.error ? 'alert' : 'status'}>{w.toast.error ? <CircleAlert size={18}/> : <CircleCheck size={18}/>}<span>{w.toast.message}</span><button className="icon-button" aria-label="关闭提示" onClick={() => w.setToast(null)}><X size={15}/></button></div>}
   </div>;

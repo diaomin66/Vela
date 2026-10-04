@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error Release tooling is intentionally a standalone Node ESM script.
 import { releaseManifest, releaseVersion } from '../scripts/release-manifest.mjs';
 
-const fixture = { version: '0.4.0', tag: 'v0.4.0', repository: 'diaomin66/Vela', filename: 'Vela_0.4.0_x64-setup.exe', signature: Buffer.from('untrusted comment: fixture\nfixture-only').toString('base64'), pubDate: '2026-10-03T00:00:00Z', notes: '更新说明' };
+const fixture = { productName: 'Vela', version: '0.4.0', tag: 'v0.4.0', repository: 'diaomin66/Vela', filename: 'Vela_0.4.0_x64-setup.exe', signature: Buffer.from('untrusted comment: fixture\nfixture-only').toString('base64'), pubDate: '2026-10-03T00:00:00Z', notes: '更新说明' };
 describe('signed release metadata', () => {
+  it('keeps the existing update feed while binding the renamed installer', () => {
+    const release = { ...fixture, productName: 'AhaX', version: '0.7.0', tag: 'v0.7.0', filename: 'AhaX_0.7.0_x64-setup.exe' };
+    expect(releaseManifest(release).platforms['windows-x86_64'].url).toBe('https://github.com/diaomin66/Vela/releases/download/v0.7.0/AhaX_0.7.0_x64-setup.exe');
+    expect(() => releaseManifest({ ...release, filename: 'Vela_0.7.0_x64-setup.exe' })).toThrow();
+  });
   it('pins downloads to the exact release and Windows target', () => {
     const result = releaseManifest(fixture);
     expect(result.version).toBe('0.4.0');

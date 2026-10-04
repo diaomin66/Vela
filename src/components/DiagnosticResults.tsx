@@ -2,7 +2,9 @@ import { CircleAlert, CircleCheck, Info } from 'lucide-react';
 import type { DiagnosticItem } from '../types';
 
 export function DiagnosticResults({ items }: { items: DiagnosticItem[] }) {
-  return <div className="diagnostic-results">{items.map((item) => {
+  const priority = { error: 0, warning: 1, info: 2, passed: 3 };
+  const sorted = [...items].sort((a, b) => priority[a.status] - priority[b.status]);
+  return <div className="diagnostic-results">{sorted.map((item) => {
     const Icon = item.status === 'passed' ? CircleCheck : item.status === 'info' ? Info : CircleAlert;
     return <div className="diagnostic-result" key={item.id}>
       <span className={`result-icon ${item.status}`}><Icon size={18}/></span>

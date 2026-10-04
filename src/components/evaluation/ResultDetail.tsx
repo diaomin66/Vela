@@ -1,14 +1,13 @@
 import * as Tabs from '@radix-ui/react-tabs';
-import { Check, CircleAlert, Code2, FileText, Image, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { Check, CircleAlert, Code2, FileText, Image, RotateCcw, X } from 'lucide-react';
 import { useState } from 'react';
 import type { CaseResult } from '../../lib/evaluation';
 import { ArtifactPreview } from './ArtifactPreview';
 import { duration, effortName, resultLabels } from './presentation';
 
 function ArtifactReview({ html, modelId }: { html: string; modelId: string }) {
-  const [playing, setPlaying] = useState(true);
   const [revision, setRevision] = useState(0);
-  return <div className="evaluation-artifact-review"><div className="evaluation-artifact-controls"><span>动态作品</span><div><button aria-pressed={!playing} onClick={() => setPlaying((value) => !value)}>{playing ? <Pause size={14}/> : <Play size={14}/>} {playing ? '暂停' : '播放'}</button><button onClick={() => { setRevision((value) => value + 1); setPlaying(true); }}><RotateCcw size={14}/>重新播放</button></div></div><div className="evaluation-detail-artifact"><ArtifactPreview key={revision} html={html} title={`${modelId} 鹈鹕动画完整预览`} playing={playing} interactive/></div></div>;
+  return <div className="evaluation-artifact-review"><div className="evaluation-artifact-controls"><span>动态作品</span><button onClick={() => setRevision((value) => value + 1)}><RotateCcw size={14}/>重新播放</button></div><div className="evaluation-detail-artifact"><ArtifactPreview key={revision} html={html} title={`${modelId} 鹈鹕动画完整预览`} interactive/></div></div>;
 }
 
 export function EvaluationResultContent({ result }: { result: CaseResult }) {

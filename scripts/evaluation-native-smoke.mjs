@@ -11,7 +11,7 @@ import { chromium } from '@playwright/test';
 // existing Vela data, or read a real Codex configuration / Windows credential.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
-assert.equal(path.basename(executable).toLowerCase(), 'vela.exe', 'Pass the built Vela application, never an installer.');
+assert.equal(path.basename(executable).toLowerCase(), 'vela.exe', 'Pass the built AhaX application, never an installer.');
 const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'evaluation-native-smoke-'));
@@ -120,7 +120,9 @@ async function verifyEvaluationUi(run, exported) {
   await mkdir(screenshots, { recursive: true });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '评测', exact: true }).click();
-  await page.getByRole('heading', { name: '模型评测', exact: true }).waitFor({ state: 'visible' });
+  await page.getByRole('heading', { name: '单次检测', exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await page.getByRole('navigation', { name: '评测子导航' }).getByRole('button', { name: '单次检测', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await page.getByRole('button', { name: /暂停动画|播放动画/ }).count(), 0);
   const card = page.getByTestId('pelican-card');
   await card.waitFor({ state: 'visible' });
   assert.equal(await card.count(), 1);
@@ -132,7 +134,7 @@ async function verifyEvaluationUi(run, exported) {
   assert.notEqual(await drawing.locator('#wheel').evaluate((element) => getComputedStyle(element).transform), before);
   assert.equal(await page.evaluate(() => globalThis.fixtureExecuted), undefined);
   await page.evaluate(() => document.fonts.ready.then(() => true));
-  const evaluationScreenshot = path.join(screenshots, `vela-native-${version}-gallery.png`);
+  const evaluationScreenshot = path.join(screenshots, `ahax-native-${version}-gallery.png`);
   await page.screenshot({ path: evaluationScreenshot, animations: 'disabled' });
   await card.getByRole('button', { name: '查看 evaluation-subject 鹈鹕动画 结果', exact: true }).click();
   const detail = page.getByRole('dialog', { name: '鹈鹕动画', exact: true });
@@ -154,19 +156,77 @@ async function verifyEvaluationUi(run, exported) {
   await page.keyboard.press('Escape');
   await detail.waitFor({ state: 'detached' });
   await page.getByRole('tab', { name: '糖果推理', exact: true }).click();
-  const timeline = page.getByTestId('candy-timeline');
-  await timeline.waitFor();
-  assert.equal(await timeline.locator('.evaluation-time-block').count(), 48);
-  await timeline.locator('.evaluation-time-block[data-state-value="passed"]').first().click();
+  const manual = page.getByTestId('manual-results');
+  await manual.waitFor();
+  assert.equal(await manual.locator('.evaluation-answer-row').count(), 1);
+  assert.equal(await page.getByTestId('candy-timeline').count(), 0);
+  assert((await manual.innerText()).includes('Subject fixture'));
+  await manual.locator('.evaluation-answer-row').click();
   const candy = page.getByRole('dialog', { name: '糖果推理', exact: true });
   await candy.waitFor();
-  assert((await candy.innerText()).includes('21'));
+  assert.equal(await candy.locator('.evaluation-answer').innerText(), answers.candy);
   await page.keyboard.press('Escape');
   await candy.waitFor({ state: 'detached' });
-  const timelineScreenshot = path.join(screenshots, `vela-native-${version}-timeline.png`);
+  const manualScreenshot = path.join(screenshots, `ahax-native-${version}-manual.png`);
+  await page.screenshot({ path: manualScreenshot, animations: 'disabled' });
+  await page.getByRole('button', { name: '记录', exact: true }).click();
+  const history = page.getByRole('dialog', { name: '评测记录', exact: true });
+  await history.waitFor();
+  assert.equal(await history.locator('.evaluation-history-item').count(), 1);
+  await history.getByRole('checkbox', { name: '选择全部评测记录', exact: true }).check();
+  assert.equal(await history.getByRole('checkbox', { checked: true }).count(), 2);
+  await history.getByRole('button', { name: '删除所选（1）', exact: true }).click();
+  const removal = page.getByRole('dialog', { name: '删除这轮评测？', exact: true });
+  await removal.waitFor();
+  assert((await removal.innerText()).includes('已导出的文件会保留'));
+  await removal.getByRole('button', { name: '取消', exact: true }).click();
+  await removal.waitFor({ state: 'detached' });
+  await page.keyboard.press('Escape');
+  await history.waitFor({ state: 'detached' });
+  assert.deepEqual(await invoke('get_evaluation_run', { runId: run.id }), run);
+  report.ui = { evaluationScreenshot, manualScreenshot, exportPath: exported.path, animationChanged: true, nativeExportFeedback: true, historySelectionAndDeletionCancel: true };
+  check('Packaged manual gallery animates HTML, result rows open exact answers, history selects records and native export confirms its path');
+}
+
+async function verifyScheduledUi(scheduledRun) {
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '评测', exact: true }).click();
+  await page.getByRole('navigation', { name: '评测子导航' }).getByRole('button', { name: '定时评测', exact: true }).click();
+  await page.getByRole('heading', { name: '定时评测', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '计划已暂停', exact: true }).waitFor();
+  const timeline = page.getByTestId('candy-timeline');
+  await timeline.waitFor();
+  assert.equal(await timeline.locator('.evaluation-timeline-card').count(), 1);
+  assert.equal(await timeline.locator('.evaluation-time-block').count(), 48);
+  assert.equal(await timeline.locator('.evaluation-time-block[data-state-value="passed"]').count(), 1);
+  assert.equal(await page.getByTestId('manual-results').count(), 0);
+  await timeline.locator('.evaluation-time-block[data-state-value="passed"]').click();
+  const candy = page.getByRole('dialog', { name: '糖果推理', exact: true });
+  await candy.waitFor();
+  assert.equal(await candy.locator('.evaluation-answer').innerText(), scheduledRun.results[0].output);
+  await candy.getByRole('button', { name: '删除本轮评测', exact: true }).click();
+  const removal = page.getByRole('dialog', { name: '删除这轮评测？', exact: true });
+  await removal.waitFor();
+  await removal.getByRole('button', { name: '取消', exact: true }).click();
+  await removal.waitFor({ state: 'detached' });
+  await page.keyboard.press('Escape');
+  await candy.waitFor({ state: 'detached' });
+  const timelineScreenshot = path.join(root, 'artifacts', 'screenshots', `ahax-native-${version}-timeline.png`);
   await page.screenshot({ path: timelineScreenshot, animations: 'disabled' });
-  report.ui = { evaluationScreenshot, timelineScreenshot, exportPath: exported.path, animationChanged: true, nativeExportFeedback: true };
-  check('Packaged gallery animates generated HTML, timeline opens exact answers and native export confirms its saved path');
+  Object.assign(report.ui, { timelineScreenshot, scheduledScopeAndDeletionCancel: true });
+  check('Packaged scheduled page shows only scheduled records in 48 slots and opens the matching native result');
+}
+
+async function assertDeleted(ids) {
+  const current = await invoke('get_evaluation_dashboard');
+  const activity = await invoke('get_evaluation_activity');
+  for (const id of ids) {
+    assert(!current.history.some((item) => item.id === id));
+    assert(!activity.records.some((item) => item.runId === id));
+    await assert.rejects(invoke('get_evaluation_run', { runId: id }));
+    await assert.rejects(invoke('export_evaluation_run', { runId: id }));
+    await assert.rejects(stat(path.join(dataDirectory, 'evaluations', 'runs', `${id}.json`)), { code: 'ENOENT' });
+    await assert.rejects(stat(path.join(dataDirectory, 'evaluations', '.deleting', `${id}.json`)), { code: 'ENOENT' });
+  }
 }
 
 async function stopApplication() {
@@ -425,7 +485,31 @@ try {
   const beforeCancel = report.requests.length;
   const cancelledId = await startRun({ ...plan, requestTimeoutSeconds: 1800 });
   await until(() => heldResponse, 'first cancellable Responses request');
+  const activeIndexBeforeWake = await readFile(evaluationIndex, 'utf8');
+  const activeReportPath = path.join(dataDirectory, 'evaluations', 'runs', `${cancelledId}.json`);
+  const activeReportBeforeWake = await readFile(activeReportPath, 'utf8');
+  for (const args of [[], ['--background']]) {
+    await new Promise((resolve, reject) => {
+      const waking = spawn(executable, args, { cwd: path.dirname(executable), windowsHide: true, stdio: 'ignore', env: environment });
+      const deadline = setTimeout(() => { waking.kill(); reject(new Error('Second instance failed to exit.')); }, 10000);
+      waking.once('error', (error) => { clearTimeout(deadline); reject(error); });
+      waking.once('close', (code) => { clearTimeout(deadline); code === 0 ? resolve() : reject(new Error(`Second instance exited with ${code}.`)); });
+    });
+    assert.equal(await readFile(evaluationIndex, 'utf8'), activeIndexBeforeWake, 'A second desktop launch must not recover the live evaluation as interrupted.');
+    assert.equal(await readFile(activeReportPath, 'utf8'), activeReportBeforeWake);
+    assert.equal((await invoke('get_evaluation_dashboard')).active.id, cancelledId);
+    assert.equal(report.requests.length, beforeCancel + 1);
+  }
+  check('Second foreground and background launches leave the running evaluation and persisted files unchanged');
   await assert.rejects(startRun(plan));
+  const activeIndex = await readFile(evaluationIndex);
+  const activeFeed = await invoke('get_evaluation_activity');
+  await assert.rejects(invoke('delete_evaluation_runs', { runIds: [run.id, cancelledId] }), /正在运行/);
+  assert.deepEqual(await readFile(evaluationIndex), activeIndex, 'A batch containing an active run must not remove the completed companion.');
+  assert.deepEqual(await invoke('get_evaluation_activity'), activeFeed);
+  assert.deepEqual(await invoke('get_evaluation_run', { runId: run.id }), run);
+  assert.equal((await invoke('get_evaluation_dashboard')).active.id, cancelledId);
+  check('Native deletion rejects an active run and leaves the entire mixed batch unchanged');
   await invoke('cancel_evaluation', { runId: cancelledId });
   const cancelled = await finishedRun(cancelledId);
   assert.equal(cancelled.status, 'cancelled');
@@ -498,6 +582,61 @@ try {
   assert.equal(JSON.parse(await readFile(evaluationIndex, 'utf8')).plan.scheduleEnabled, false);
   report.scheduledRun = { id: scheduledRun.id, trigger: scheduledRun.trigger, status: scheduledRun.status };
   check('Persisted schedule runs once in the background, advances its deadline and survives restart without replay');
+
+  await stopApplication();
+  await startApplication();
+  await verifyScheduledUi(scheduledRun);
+  const retainedPlan = (await invoke('get_evaluation_dashboard')).plan;
+  const beforeDeletionRequests = report.requests.length;
+  const beforeDeletionIndex = await readFile(evaluationIndex);
+  const beforeDeletionFeed = await invoke('get_evaluation_activity');
+  const retainedExports = await readFile(exported.path);
+  for (const invalidBatch of [[run.id, randomUUID()], [run.id, '../outside'], []]) {
+    await assert.rejects(invoke('delete_evaluation_runs', { runIds: invalidBatch }));
+    assert.deepEqual(await readFile(evaluationIndex), beforeDeletionIndex, 'Invalid batches must leave the persisted index byte-identical.');
+    assert.deepEqual(await invoke('get_evaluation_activity'), beforeDeletionFeed);
+    assert.deepEqual(await invoke('get_evaluation_run', { runId: run.id }), run);
+  }
+  check('Unknown, unsafe and empty native deletion batches fail atomically without removing valid records');
+  const singleRemoved = await invoke('delete_evaluation_runs', { runIds: [unsafeRun.id] });
+  assert.equal(singleRemoved.history.length, 4);
+  assert.deepEqual(singleRemoved.plan, retainedPlan);
+  await assertDeleted([unsafeRun.id]);
+  assert.deepEqual(await invoke('get_evaluation_run', { runId: scheduledRun.id }), scheduledRun);
+  check('Single native deletion removes the report, artwork and activity while preserving other runs and the plan');
+  const batchIds = [run.id, cancelled.id, expired.id];
+  const batchRemoved = await invoke('delete_evaluation_runs', { runIds: batchIds });
+  assert.deepEqual(batchRemoved.history.map((item) => item.id), [scheduledRun.id]);
+  assert.deepEqual(batchRemoved.plan, retainedPlan);
+  await assertDeleted(batchIds);
+  const retainedFeed = await invoke('get_evaluation_activity');
+  assert.equal(retainedFeed.records.length, 1);
+  assert.equal(retainedFeed.records[0].runId, scheduledRun.id);
+  assert.deepEqual(await readFile(exported.path), retainedExports, 'An explicit exported JSON file must survive deletion of its source report.');
+  assert.equal(report.requests.length, beforeDeletionRequests, 'Deleting records must not call any model or trigger a schedule.');
+  check('Batch native deletion clears compact activity and report files while retaining explicit exports and scheduled history');
+  await stopApplication();
+  await startApplication();
+  await assertDeleted([unsafeRun.id, ...batchIds]);
+  const afterDeletionRestart = await invoke('get_evaluation_dashboard');
+  assert.deepEqual(afterDeletionRestart.history.map((item) => item.id), [scheduledRun.id]);
+  assert.deepEqual(afterDeletionRestart.plan, retainedPlan);
+  assert.equal(afterDeletionRestart.nextRunAt, null);
+  assert.deepEqual(await invoke('get_evaluation_activity'), retainedFeed);
+  assert.deepEqual(await readFile(exported.path), retainedExports);
+  await delay(500);
+  assert.equal(report.requests.length, beforeDeletionRequests);
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '评测', exact: true }).click();
+  await page.getByRole('heading', { name: '开始一次鹈鹕动画', exact: true }).waitFor();
+  assert.equal(await page.getByTestId('pelican-card').count(), 0);
+  await page.getByRole('button', { name: '记录', exact: true }).click();
+  const emptyHistory = page.getByRole('dialog', { name: '评测记录', exact: true });
+  await emptyHistory.getByText('这里还没有评测记录。', { exact: true }).waitFor();
+  assert.equal(await emptyHistory.locator('.evaluation-history-item').count(), 0);
+  await page.keyboard.press('Escape');
+  await emptyHistory.waitFor({ state: 'detached' });
+  report.deletion = { singleId: unsafeRun.id, batchIds, retainedScheduledId: scheduledRun.id, exportedFileRetained: true, atomicInvalidBatch: true, activeRunRejected: true, restartPreserved: true };
+  check('Deleted native records stay absent from disk, activity, UI and exports after restart without replay');
 
   assert.equal(await readFile(configPath, 'utf8'), originalConfig);
   await checkPersistedSecrets(dataDirectory);

@@ -92,7 +92,7 @@ fn atomic_replace(source: &Path, target: &Path) -> std::io::Result<()> {
         .chain(std::iter::once(0))
         .collect();
     let existing = target.exists();
-    retry_sharing_violation(
+    retry_uncommitted_replacement(
         || {
             let succeeded = unsafe {
                 if existing {
@@ -120,7 +120,7 @@ fn atomic_replace(source: &Path, target: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(windows)]
-fn retry_sharing_violation(
+fn retry_uncommitted_replacement(
     mut operation: impl FnMut() -> std::io::Result<()>,
     mut wait: impl FnMut(std::time::Duration),
 ) -> std::io::Result<()> {
@@ -130,7 +130,8 @@ fn retry_sharing_violation(
     for attempt in 0..=BACKOFF_MS.len() {
         match operation() {
             Err(error)
-                if matches!(error.raw_os_error(), Some(32 | 33)) && attempt < BACKOFF_MS.len() =>
+                if matches!(error.raw_os_error(), Some(32 | 33 | 1175))
+                    && attempt < BACKOFF_MS.len() =>
             {
                 wait(std::time::Duration::from_millis(BACKOFF_MS[attempt]));
             }
@@ -212,35 +213,60 @@ mod tests {
     fn retry_policy_is_bounded_and_never_retries_permissions_or_partial_moves() {
         for code in [5, 1176, 1177] {
             let mut calls = 0;
-            let result = retry_sharing_violation(
+            let result = retry_uncommitted_replacement(
                 || {
                     calls += 1;
                     Err(std::io::Error::from_raw_os_error(code))
                 },
-                |_| panic!("non-sharing errors must not wait"),
+                |_| panic!("unsafe replacement errors must not wait"),
             );
             assert_eq!(calls, 1);
             assert_eq!(result.unwrap_err().raw_os_error(), Some(code));
         }
-        let mut calls = 0;
-        let mut waited = Duration::ZERO;
-        let result = retry_sharing_violation(
-            || {
-                calls += 1;
-                Err(std::io::Error::from_raw_os_error(33))
-            },
-            |delay| waited += delay,
-        );
-        assert_eq!(result.unwrap_err().raw_os_error(), Some(33));
-        assert_eq!(calls, 5);
-        assert_eq!(waited, Duration::from_millis(250));
+        for code in [32, 33, 1175] {
+            let mut calls = 0;
+            let mut waited = Duration::ZERO;
+            let result = retry_uncommitted_replacement(
+                || {
+                    calls += 1;
+                    Err(std::io::Error::from_raw_os_error(code))
+                },
+                |delay| waited += delay,
+            );
+            assert_eq!(result.unwrap_err().raw_os_error(), Some(code));
+            assert_eq!(calls, 5);
+            assert_eq!(waited, Duration::from_millis(250));
+            assert!(!preserve_replacement(&std::io::Error::from_raw_os_error(
+                code
+            )));
+        }
         for code in [1176, 1177] {
             let error = std::io::Error::from_raw_os_error(code);
             assert!(preserve_replacement(&error));
             assert!(replacement_error(&error).contains("暂存文件已保留"));
         }
-        assert!(!preserve_replacement(&std::io::Error::from_raw_os_error(
-            32
-        )));
+    }
+
+    #[test]
+    fn unable_to_remove_replaced_retries_until_success_without_more_operations() {
+        let mut calls = 0;
+        let mut delays = Vec::new();
+        retry_uncommitted_replacement(
+            || {
+                calls += 1;
+                if calls < 3 {
+                    Err(std::io::Error::from_raw_os_error(1175))
+                } else {
+                    Ok(())
+                }
+            },
+            |delay| delays.push(delay),
+        )
+        .unwrap();
+        assert_eq!(calls, 3);
+        assert_eq!(
+            delays,
+            [Duration::from_millis(15), Duration::from_millis(35)]
+        );
     }
 }

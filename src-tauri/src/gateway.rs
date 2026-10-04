@@ -262,7 +262,7 @@ fn authorize(headers: &HeaderMap, state: &GatewayState) -> Result<(), Response<B
         return Err(error(
             StatusCode::FORBIDDEN,
             "browser_origin_blocked",
-            "Vela 本机路由不接受浏览器跨来源请求。",
+            "AhaX 本机路由不接受浏览器跨来源请求。",
         ));
     }
     let host = headers
@@ -285,7 +285,7 @@ fn authorize(headers: &HeaderMap, state: &GatewayState) -> Result<(), Response<B
         return Err(error(
             StatusCode::UNAUTHORIZED,
             "invalid_local_credential",
-            "本机路由凭据无效，请在 Vela 中重新应用连接。",
+            "本机路由凭据无效，请在 AhaX 中重新应用连接。",
         ));
     }
     Ok(())
@@ -299,7 +299,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
             "gateway_stopping",
-            "Vela 本机路由正在退出。",
+            "AhaX 本机路由正在退出。",
         );
     }
     if request.uri().query().is_some() {
@@ -338,7 +338,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
         return error(
             StatusCode::NOT_FOUND,
             "unsupported_endpoint",
-            "Vela 仅提供 Models、Responses 和 Responses Compact 接口。",
+            "AhaX 仅提供 Models、Responses 和 Responses Compact 接口。",
         );
     }
     forward(state, request, compact).await
@@ -372,7 +372,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
             return error(
                 StatusCode::BAD_REQUEST,
                 "missing_model",
-                "请选择 Vela 模型目录中的模型。",
+                "请选择 AhaX 模型目录中的模型。",
             )
         }
     };
@@ -425,7 +425,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
             return error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "channel_credential_missing",
-                "渠道凭据无法读取，请在 Vela 中更新该渠道 Key。",
+                "渠道凭据无法读取，请在 AhaX 中更新该渠道 Key。",
             )
         }
     };
@@ -500,9 +500,9 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
     let upstream = tokio::select! {
         result = outgoing.json(&payload).send() => match result {
             Ok(response) => response,
-            Err(_) => return error(StatusCode::BAD_GATEWAY, "upstream_unreachable", "无法连接到当前渠道。请在 Vela 中检查网络与渠道状态。"),
+            Err(_) => return error(StatusCode::BAD_GATEWAY, "upstream_unreachable", "无法连接到当前渠道。请在 AhaX 中检查网络与渠道状态。"),
         },
-        _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "Vela 本机路由已停止。"),
+        _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "AhaX 本机路由已停止。"),
     };
     let status = upstream.status();
     if !status.is_success() {
@@ -537,7 +537,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
     loop {
         let next = tokio::select! {
             result = chunks.next() => result,
-            _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "Vela 本机路由已停止。"),
+            _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "AhaX 本机路由已停止。"),
         };
         match next {
             Some(Ok(chunk)) if bytes.len().saturating_add(chunk.len()) <= MAX_BODY => {
@@ -806,14 +806,14 @@ fn transform_frame(
 }
 
 fn stream_error() -> Bytes {
-    Bytes::from_static(b"event: error\ndata: {\"type\":\"error\",\"code\":\"vela_upstream_stream_interrupted\",\"message\":\"The channel stream was interrupted. Check its status in Vela.\"}\n\n")
+    Bytes::from_static(b"event: error\ndata: {\"type\":\"error\",\"code\":\"vela_upstream_stream_interrupted\",\"message\":\"The channel stream was interrupted. Check its status in AhaX.\"}\n\n")
 }
 
 fn upstream_error(status: StatusCode) -> Response<Body> {
     let (code, message) = match status.as_u16() {
         401 => (
             "upstream_authentication_failed",
-            "渠道 Key 认证失败，请在 Vela 中更新 Key。",
+            "渠道 Key 认证失败，请在 AhaX 中更新 Key。",
         ),
         403 => (
             "upstream_access_denied",
@@ -829,11 +829,11 @@ fn upstream_error(status: StatusCode) -> Response<Body> {
         ),
         300..=399 => (
             "upstream_redirect_blocked",
-            "渠道返回了重定向。为保护 Key，Vela 不会跟随跳转，请修改渠道地址。",
+            "渠道返回了重定向。为保护 Key，AhaX 不会跟随跳转，请修改渠道地址。",
         ),
         _ => (
             "upstream_request_failed",
-            "渠道未完成请求，请在 Vela 中诊断该渠道。",
+            "渠道未完成请求，请在 AhaX 中诊断该渠道。",
         ),
     };
     let public_status = if status.is_redirection() {

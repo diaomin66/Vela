@@ -88,7 +88,19 @@ export function createPreviewEvaluation(now: () => number = Date.now, workspace?
       return dashboard();
     },
     async cancel(runId) { advance(); if (active?.id === runId) { active.status = 'cancelled'; active.finishedAt = stamp(); runs.unshift(active); active = null; } return dashboard(); },
+    async remove(runIds) {
+      await seed();
+      advance();
+      const selected = new Set(runIds);
+      if (!selected.size || selected.size > 100) throw new Error('请选择 1–100 次评测记录。');
+      for (const id of selected) {
+        if (active?.id === id) throw new Error('正在运行的评测不能删除，请先取消并等待结束。');
+        if (!runs.some((run) => run.id === id)) throw new Error('部分评测记录已不存在，请刷新后重新选择；本次未删除任何记录。');
+      }
+      for (let index = runs.length - 1; index >= 0; index--) if (selected.has(runs[index].id)) runs.splice(index, 1);
+      return dashboard();
+    },
     async run(runId) { return find(runId); },
-    async export(runId) { return { fileName: `vela-evaluation-${runId}.json`, content: JSON.stringify(find(runId), null, 2), path: '' }; },
+    async export(runId) { return { fileName: `ahax-evaluation-${runId}.json`, content: JSON.stringify(find(runId), null, 2), path: '' }; },
   };
 }

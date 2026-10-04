@@ -13,6 +13,7 @@ mod evaluation;
 use crate::core::AppPaths;
 pub use credentials::run_credential_mode;
 use state::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -35,10 +36,11 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::UpdateState::new(paths.clone()))
-        .manage(crate::evaluation::EvaluationState::new(paths.clone()))
         .manage(artifact_previews)
         .manage(AppState::new(paths))
         .setup(|app| {
+            let paths = app.state::<AppState>().paths.clone();
+            app.manage(crate::evaluation::EvaluationState::new(paths));
             desktop::setup(app)?;
             metadata::start(app.handle().clone());
             updater::start(app.handle().clone());
@@ -80,10 +82,11 @@ pub fn run() {
             evaluation::start_evaluation,
             evaluation::cancel_evaluation,
             evaluation::get_evaluation_run,
+            evaluation::delete_evaluation_runs,
             evaluation::export_evaluation_run,
             crate::artifact_preview::create_artifact_preview,
             crate::artifact_preview::release_artifact_preview
         ])
         .run(context)
-        .expect("Unable to launch Vela");
+        .expect("Unable to launch AhaX");
 }

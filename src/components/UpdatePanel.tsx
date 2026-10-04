@@ -21,7 +21,7 @@ export function UpdatePanel() {
   const hasRelease = Boolean(status.version) && ['available', 'downloading', 'ready', 'installing'].includes(phase);
   const Icon = error ? CircleAlert : active ? LoaderCircle : phase === 'latest' ? Check : phase === 'ready' ? ArrowDownToLine : RefreshCw;
   return <section className="editor-section update-panel" aria-labelledby="software-update-heading" aria-busy={active}>
-    <div className="update-heading"><h3 id="software-update-heading">软件更新</h3><span>Vela {status.currentVersion}</span></div>
+    <div className="update-heading"><h3 id="software-update-heading">软件更新</h3><span>AhaX {status.currentVersion}</span></div>
     <div className={`update-status ${error ? 'has-error' : ''}`}>
       <span className="update-status-icon"><Icon size={19} className={active && !error ? 'spin' : undefined}/></span>
       <div className="update-status-copy"><strong role="status">{error ? '更新未完成' : labels[phase]}</strong><span>{hasRelease ? `${desktop ? '新版本' : '演示版本'} ${status.version}` : status.checkedAt ? `上次检查 ${readableTime(status.checkedAt)}` : '从 GitHub 获取正式版本'}</span></div>

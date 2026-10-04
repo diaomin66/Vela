@@ -51,6 +51,13 @@ pub(super) fn get_evaluation_run(
     state.run(&run_id)
 }
 #[tauri::command]
+pub(super) fn delete_evaluation_runs(
+    state: State<'_, EvaluationState>,
+    run_ids: Vec<String>,
+) -> Result<EvaluationDashboard, String> {
+    state.remove(&run_ids)
+}
+#[tauri::command]
 pub(super) fn export_evaluation_run(
     state: State<'_, EvaluationState>,
     run_id: String,

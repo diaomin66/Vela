@@ -4,7 +4,7 @@ use crate::core::{self, AppPaths};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 
-const HISTORY_LIMIT: usize = 100;
+pub(super) const HISTORY_LIMIT: usize = 100;
 const RECORDS_PER_RUN: usize = 18;
 const MAX_INDEX_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_RUN_BYTES: u64 = 8 * 1024 * 1024;
@@ -42,7 +42,7 @@ impl Default for EvaluationStore {
     }
 }
 
-fn directory(paths: &AppPaths) -> PathBuf {
+pub(super) fn directory(paths: &AppPaths) -> PathBuf {
     paths.data.join("evaluations")
 }
 fn read_bounded(path: &std::path::Path, limit: u64) -> Result<Vec<u8>, String> {
@@ -70,7 +70,7 @@ pub(super) fn write(paths: &AppPaths, store: &EvaluationStore) -> Result<(), Str
     }
     core::atomic_write(&directory(paths).join("index.json"), &bytes)
 }
-fn run_path(paths: &AppPaths, id: &str) -> Result<PathBuf, String> {
+pub(super) fn run_path(paths: &AppPaths, id: &str) -> Result<PathBuf, String> {
     core::validate_id(id)?;
     Ok(directory(paths).join("runs").join(format!("{id}.json")))
 }
@@ -130,6 +130,7 @@ pub(super) fn finish(paths: &AppPaths, run: &EvaluationRun) -> Result<(), String
     Ok(())
 }
 pub(super) fn recover(paths: &AppPaths) -> Result<(), String> {
+    super::deletion::recover(paths)?;
     migrate_records(paths)?;
     let store = read(paths)?;
     if let Some(id) = store.active_run_id {
@@ -172,7 +173,7 @@ fn migrate_records(paths: &AppPaths) -> Result<(), String> {
 pub(super) fn export(paths: &AppPaths, id: &str) -> Result<EvaluationExport, String> {
     let run = read_run(paths, id)?;
     let content = serde_json::to_string_pretty(&run).map_err(|_| "无法导出评测记录。")?;
-    let file_name = format!("Vela-evaluation-{id}.json");
+    let file_name = format!("AhaX-evaluation-{id}.json");
     let target = directory(paths).join("exports").join(&file_name);
     core::atomic_write(&target, content.as_bytes())?;
     Ok(EvaluationExport {

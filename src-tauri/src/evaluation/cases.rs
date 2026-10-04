@@ -25,7 +25,7 @@ pub(super) fn definitions() -> Vec<CaseDefinition> {
         (
             CaseId::Judgment,
             "判题能力",
-            "Vela 原创六题答案判断；按已知正确标签评分。",
+            "内置六题答案判断；按已知正确标签评分。",
             "vela-judgment-v1",
         ),
     ]

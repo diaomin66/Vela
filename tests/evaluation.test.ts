@@ -112,3 +112,43 @@ describe('activity metadata and compatible schedules', () => {
     for (const intervalMinutes of [9, 10081, 30.5]) expect(validateEvaluationPlan({ ...plan(), intervalMinutes })).toMatch('10 分钟–7 天');
   });
 });
+
+describe('evaluation removal', () => {
+  it('removes complete runs and activity while retaining unrelated reports and exported content', async () => {
+    let now = 0;
+    const api = createPreviewEvaluation(() => now);
+    const first = (await api.start(plan())).active!.id;
+    now += 3000;
+    const exported = await api.export(first);
+    const second = (await api.start(plan())).active!.id;
+    now += 3000;
+    const third = (await api.start(plan())).active!.id;
+    now += 3000;
+    const dashboard = await api.remove([first, second, first]);
+    expect(dashboard.history.map((run) => run.id)).toEqual([third]);
+    expect((await api.activity()).records.map((record) => record.runId)).toEqual([third, third, third]);
+    await expect(api.run(first)).rejects.toThrow('不存在');
+    await expect(api.run(second)).rejects.toThrow('不存在');
+    expect(JSON.parse(exported.content).id).toBe(first);
+    expect(JSON.parse(exported.content).results).toHaveLength(3);
+  });
+  it('validates all selections before deletion and never cancels an active run or changes a schedule', async () => {
+    let now = 0;
+    const api = createPreviewEvaluation(() => now);
+    const scheduled = await api.save({ ...plan(), scheduleEnabled: true, intervalMinutes: 30 });
+    const finished = (await api.start(plan())).active!.id;
+    now += 3000;
+    const active = (await api.start(plan())).active!.id;
+    await expect(api.remove([finished, active])).rejects.toThrow('正在运行');
+    await expect(api.remove([finished, 'unknown'])).rejects.toThrow('未删除任何记录');
+    await expect(api.remove([])).rejects.toThrow('1–100');
+    await expect(api.remove(Array.from({ length: 101 }, (_, index) => `unknown-${index}`))).rejects.toThrow('1–100');
+    expect((await api.dashboard()).history.map((run) => run.id)).toEqual([finished]);
+    const dashboard = await api.remove([finished]);
+    expect(dashboard.history).toEqual([]);
+    expect(dashboard.active?.id).toBe(active);
+    expect(dashboard.active?.status).toBe('running');
+    expect(dashboard.plan).toEqual(scheduled.plan);
+    expect(dashboard.nextRunAt).toBe(scheduled.nextRunAt);
+  });
+});

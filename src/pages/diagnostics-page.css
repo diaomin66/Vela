@@ -1,0 +1,26 @@
+.diagnostics-lead { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.diagnostics-page .diagnosis-overview { gap: 18px; }
+.diagnostics-page .diagnosis-symbol { flex: 0 0 auto; }
+.diagnostics-page .diagnosis-overview > div:nth-child(2) { flex: 1; min-width: 0; }
+.diagnostics-page .diagnostic-result:nth-child(even) { background: transparent; }
+.diagnostics-page .diagnostic-result:hover { background: var(--surface-hover); }
+.diagnostics-notices { margin-top: 12px; }
+.diagnostics-verified { margin-top: 14px; border-radius: 18px; background: var(--surface); overflow: hidden; }
+.diagnostics-verified summary { display: flex; align-items: center; gap: 10px; padding: 18px 22px; color: var(--muted); font-size: 12px; cursor: pointer; list-style: none; }
+.diagnostics-verified summary::-webkit-details-marker { display: none; }
+.diagnostics-verified summary > svg:last-child { margin-left: auto; transition: transform 150ms ease; }
+.diagnostics-verified[open] summary > svg:last-child { transform: rotate(180deg); }
+.diagnostics-verified summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -3px; border-radius: 18px; }
+.diagnostics-count { font-variant-numeric: tabular-nums; color: var(--ink); padding: 3px 8px; background: var(--surface-soft); border-radius: 7px; }
+.diagnostics-verified .diagnostic-results { padding-top: 0; }
+.diagnostics-recovery { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 21px 23px; margin-top: 20px; border-radius: 18px; background: var(--surface-soft); }
+.diagnostics-recovery strong { color: var(--ink); font-size: 12px; font-weight: 600; }
+.diagnostics-recovery p { color: var(--muted); font-size: 11px; line-height: 1.7; margin-top: 5px; }
+.diagnostics-recovery button { flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .diagnostics-page .page-heading { align-items: flex-start; }
+  .diagnostics-page .diagnosis-actions { width: 100%; margin-left: 0; }
+  .diagnostics-page .diagnosis-actions button { flex: 1; justify-content: center; }
+  .diagnostics-recovery { align-items: flex-start; flex-direction: column; gap: 12px; padding: 19px; }
+  .diagnostics-verified summary { padding: 16px; }
+}

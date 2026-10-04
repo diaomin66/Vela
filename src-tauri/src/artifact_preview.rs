@@ -58,7 +58,7 @@ impl ArtifactPreviewState {
             return Err("预览内容超过 2 MB，请下载原文查看。".into());
         }
         let server = self.server.lock().await;
-        let state = &server.as_ref().ok_or_else(|| "本机作品预览未启动，请重新打开 Vela。".to_owned())?.state;
+        let state = &server.as_ref().ok_or_else(|| "本机作品预览未启动，请重新打开 AhaX。".to_owned())?.state;
         let mut documents = state.documents.lock().map_err(|_| "作品预览暂不可用。".to_owned())?;
         if documents.len() >= 128 || documents.values().map(String::len).sum::<usize>() + html.len() > MAX_TOTAL_BYTES {
             return Err("当前预览较多，请关闭部分作品后重试。".into());

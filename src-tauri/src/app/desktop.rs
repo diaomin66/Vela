@@ -105,11 +105,11 @@ pub(super) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         menu::{Menu, MenuItem},
         tray::TrayIconBuilder,
     };
-    let open = MenuItem::with_id(app, "open", "打开 Vela", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出 Vela", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "打开 AhaX", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出 AhaX", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &quit])?;
     let mut tray = TrayIconBuilder::new()
-        .tooltip("Vela · 本地模型网关")
+        .tooltip("AhaX · 本地模型网关")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),

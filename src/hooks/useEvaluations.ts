@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { evaluationApi, type EvaluationDashboard, type EvaluationPlan } from '../lib/evaluation';
+import { evaluationApi, type EvaluationDashboard, type EvaluationPlan, type EvaluationRecord } from '../lib/evaluation';
 import { recordsForRun } from '../lib/evaluation/records';
 import { errorMessage } from '../lib/utils';
 
@@ -10,7 +10,7 @@ export const evaluationKeys = {
   run: (id: string | null) => ['evaluations', 'run', id] as const,
 };
 
-type Operation = { kind: 'save' | 'start'; plan: EvaluationPlan } | { kind: 'cancel'; runId: string };
+type Operation = { kind: 'save' | 'start'; plan: EvaluationPlan } | { kind: 'cancel'; runId: string } | { kind: 'remove'; runIds: string[] };
 
 export function useEvaluations() {
   const client = useQueryClient();
@@ -40,15 +40,24 @@ export function useEvaluations() {
     previousActive.current = active?.id ?? null;
   }, [client, dashboard.data?.active]);
   const mutation = useMutation({
-    mutationFn: (operation: Operation) => operation.kind === 'cancel'
-      ? evaluationApi.cancel(operation.runId)
+    mutationFn: (operation: Operation) => operation.kind === 'remove'
+      ? evaluationApi.remove(operation.runIds)
+      : operation.kind === 'cancel' ? evaluationApi.cancel(operation.runId)
       : evaluationApi[operation.kind](operation.plan),
-    onMutate: async () => {
-      await client.cancelQueries({ queryKey: evaluationKeys.dashboard });
-      await client.cancelQueries({ queryKey: evaluationKeys.activity });
+    onMutate: async (operation: Operation) => {
+      await Promise.all([
+        client.cancelQueries({ queryKey: evaluationKeys.dashboard }),
+        client.cancelQueries({ queryKey: evaluationKeys.activity }),
+        ...(operation.kind === 'remove' ? operation.runIds.map((id) => client.cancelQueries({ queryKey: evaluationKeys.run(id), exact: true })) : []),
+      ]);
     },
-    onSuccess: (data: EvaluationDashboard) => {
+    onSuccess: (data: EvaluationDashboard, operation: Operation) => {
       client.setQueryData(evaluationKeys.dashboard, data);
+      if (operation.kind === 'remove') {
+        const ids = new Set(operation.runIds);
+        for (const id of ids) client.removeQueries({ queryKey: evaluationKeys.run(id), exact: true });
+        client.setQueryData(evaluationKeys.activity, (previous: { records: EvaluationRecord[] } | undefined) => previous ? { records: previous.records.filter((record) => !ids.has(record.runId)) } : previous);
+      }
       void client.invalidateQueries({ queryKey: evaluationKeys.activity });
     },
     onSettled: () => {
@@ -79,6 +88,7 @@ export function useEvaluations() {
     save: (plan: EvaluationPlan) => act({ kind: 'save', plan }),
     start: (plan: EvaluationPlan) => act({ kind: 'start', plan }),
     cancel: (runId: string) => act({ kind: 'cancel', runId }),
+    remove: (runIds: string[]) => act({ kind: 'remove', runIds }),
   };
 }
 

@@ -190,7 +190,7 @@ pub fn preview_profile(paths: &AppPaths, id: &str) -> Result<ChangePreview, Stri
     let current = read_config(paths)?;
     let contents = config_text(&current)?;
     let proposed = Zeroizing::new(render_profile(contents, &profile, paths)?);
-    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "更新直连模型与服务商，清理当前配置中由 Vela 生成的模型目录。应用前自动备份；应用后请彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
+    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "更新直连模型与服务商，清理当前配置中由 AhaX 生成的模型目录。应用前自动备份；应用后请彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
 }
 pub fn apply_profile(paths: &AppPaths, id: &str, expected_hash: &str) -> Result<Backup, String> {
     let _lock = paths.lock()?;

@@ -15,6 +15,9 @@ use url::{Host, Url};
 use uuid::Uuid;
 use zeroize::Zeroize;
 
+mod local;
+pub(crate) use local::inspect_local_system;
+
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(35);
 const DIAGNOSTIC_TOOL: &str = "connection_diagnostic_echo";
@@ -300,6 +303,7 @@ fn inspect_document(
     input: &LocalDiagnosticInput,
     items: &mut Vec<DiagnosticItem>,
 ) {
+    local::inspect_document_shape(document, items);
     if document
         .get("profile")
         .is_some_and(|value| value.as_str().is_none())

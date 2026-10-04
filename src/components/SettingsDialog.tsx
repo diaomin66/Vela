@@ -1,15 +1,19 @@
 import { useState, type FormEvent } from 'react';
-import { Check, ChevronDown, LoaderCircle, Monitor } from 'lucide-react';
+import { Check, ChevronDown, LoaderCircle, Monitor, Moon, Sun } from 'lucide-react';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/utils';
 import type { Dashboard } from '../types';
 import { Drawer } from './Drawer';
 import { Select } from './Select';
 import { UpdatePanel } from './UpdatePanel';
+import { useTheme, type ThemeMode } from '../lib/theme';
+import { APP_NAME } from '../lib/brand';
 
 const REFRESH_INTERVALS = [5, 15, 30, 60, 120, 360, 1440];
+const appearanceOptions = [{ value: 'system', label: '跟随系统', icon: Monitor }, { value: 'light', label: '浅色', icon: Sun }, { value: 'dark', label: '深色', icon: Moon }] as const;
 
 export function SettingsDialog({ data, onClose, onSaved }: { data: Dashboard; onClose: () => void; onSaved: () => Promise<void> }) {
+  const appearance = useTheme();
   const [settings, setSettings] = useState(data.settings);
   const [busy, setBusy] = useState(false);
   const [advanced, setAdvanced] = useState(false);
@@ -22,9 +26,12 @@ export function SettingsDialog({ data, onClose, onSaved }: { data: Dashboard; on
     finally { setBusy(false); }
   }
   const changedConnection = settings.providerName !== data.settings.providerName || settings.gatewayPort !== data.settings.gatewayPort;
-  return <Drawer title="Vela 设置" onClose={onClose} locked={busy}>
+  return <Drawer title={`${APP_NAME} 设置`} onClose={onClose} locked={busy}>
     <form className="editor-form" onSubmit={save}>
       <div className="editor-scroll">
+        <section className="editor-section appearance-section">
+          <fieldset className="appearance-options"><legend>外观</legend>{appearanceOptions.map(({ value, label, icon: Icon }) => <label key={value}><input type="radio" name="appearance" value={value} checked={appearance.mode === value} onChange={() => appearance.setMode(value as ThemeMode)}/><span><Icon size={19}/><strong>{label}</strong></span></label>)}</fieldset>
+        </section>
         <section className="editor-section" aria-label="常规设置">
           <div className="editor-field"><label htmlFor="provider-name">服务商显示名称</label><input id="provider-name" value={settings.providerName} onChange={(event) => setSettings({ ...settings, providerName: event.target.value })} maxLength={40} required disabled={busy}/><p className="editor-hint">Codex 中的统一服务商入口。</p></div>
           <label className="editor-settings-toggle" htmlFor="auto-refresh"><span>自动同步模型与余额</span><input id="auto-refresh" type="checkbox" checked={settings.autoRefresh} onChange={(event) => setSettings({ ...settings, autoRefresh: event.target.checked })} disabled={busy}/><span aria-hidden="true"/></label>

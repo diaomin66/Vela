@@ -29,6 +29,7 @@ export interface EvaluationApi {
   save(plan: EvaluationPlan): Promise<EvaluationDashboard>;
   start(plan: EvaluationPlan): Promise<EvaluationDashboard>;
   cancel(runId: string): Promise<EvaluationDashboard>;
+  remove(runIds: string[]): Promise<EvaluationDashboard>;
   run(runId: string): Promise<EvaluationRun>;
   export(runId: string): Promise<EvaluationExport>;
 }

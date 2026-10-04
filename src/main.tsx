@@ -6,7 +6,8 @@ import App from './App';
 import './styles.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
+import { ThemeProvider } from './lib/theme';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><QueryClientProvider client={queryClient}><App /></QueryClientProvider></React.StrictMode>,
+  <React.StrictMode><ThemeProvider><QueryClientProvider client={queryClient}><App /></QueryClientProvider></ThemeProvider></React.StrictMode>,
 );

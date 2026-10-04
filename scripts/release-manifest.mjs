@@ -3,10 +3,10 @@ import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export function releaseManifest({ version, tag, repository, signature, filename, notes = '', pubDate = new Date().toISOString() }) {
+export function releaseManifest({ version, tag, repository, signature, filename, productName = 'AhaX', notes = '', pubDate = new Date().toISOString() }) {
   if (!/^\d+\.\d+\.\d+$/.test(version) || tag !== `v${version}`) throw new Error('A stable version and its matching v-prefixed tag are required.');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Repository must be owner/name.');
-  if (filename !== `Vela_${version}_x64-setup.exe`) throw new Error('Unexpected Windows installer name.');
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(productName) || filename !== `${productName}_${version}_x64-setup.exe`) throw new Error('Unexpected Windows installer name.');
   const cleaned = signature.trim();
   if (!/^[A-Za-z0-9+/=]+$/.test(cleaned) || !Buffer.from(cleaned, 'base64').toString().startsWith('untrusted comment:')) throw new Error('A Tauri updater signature is required.');
   if (typeof notes !== 'string' || !Number.isFinite(Date.parse(pubDate))) throw new Error('Invalid release metadata.');
@@ -27,15 +27,16 @@ export function releaseVersion(packageJson, tauriJson, cargoText, tag) {
 export async function prepareRelease({ root = process.cwd(), bundleDir = 'src-tauri/target/release/bundle/nsis', outputDir = 'release', repository = 'diaomin66/Vela', tag, notesFile }) {
   const [packageText, tauriText, cargoText] = await Promise.all(['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml'].map((file) => readFile(path.join(root, file), 'utf8')));
   const version = releaseVersion(JSON.parse(packageText), JSON.parse(tauriText), cargoText, tag);
-  const filename = `Vela_${version}_x64-setup.exe`;
+  const productName = JSON.parse(tauriText).productName;
+  const filename = `${productName}_${version}_x64-setup.exe`;
   const source = path.resolve(root, bundleDir);
   const destination = path.resolve(root, outputDir);
   const [installer, signature, notes] = await Promise.all([
     readFile(path.join(source, filename)), readFile(path.join(source, `${filename}.sig`), 'utf8'),
-    notesFile ? readFile(path.resolve(root, notesFile), 'utf8') : Promise.resolve(`Vela ${version}`),
+    notesFile ? readFile(path.resolve(root, notesFile), 'utf8') : Promise.resolve(`${productName} ${version}`),
   ]);
   if (installer.length < 1024 || installer[0] !== 0x4d || installer[1] !== 0x5a) throw new Error('The release artifact is not a Windows executable.');
-  const manifest = releaseManifest({ version, tag, repository, signature, filename, notes });
+  const manifest = releaseManifest({ version, tag, repository, signature, filename, productName, notes });
   const checksum = `${createHash('sha256').update(installer).digest('hex')}  ${filename}\n`;
   await mkdir(destination, { recursive: true });
   if (source !== destination) {

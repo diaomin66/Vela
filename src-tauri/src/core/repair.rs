@@ -22,6 +22,7 @@ pub fn preview_repair(paths: &AppPaths) -> Result<ChangePreview, String> {
         if crate::catalog::is_gateway_config(contents) {
             if let Ok(mut preview) = crate::catalog::preview(paths, route.as_deref()) {
                 preview.title = "修复统一模型目录".into();
+                preview.summary = "根据已保存的渠道重建 AhaX 管理的模型目录，并核对服务商与模型路由。应用前自动备份当前配置；完成后彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into();
                 return Ok(preview);
             }
         }

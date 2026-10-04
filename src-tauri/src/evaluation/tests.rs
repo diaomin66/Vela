@@ -455,6 +455,197 @@ fn history_rotation_preserves_explicit_user_exports_byte_for_byte() {
     );
 }
 
+fn completed_run() -> EvaluationRun {
+    let target = EvaluationTarget {
+        profile_id: uuid::Uuid::new_v4().to_string(),
+        model_id: "fixture".into(),
+        reasoning_effort: None,
+    };
+    let mut finished = run(plan(&target));
+    finished.status = RunStatus::Completed;
+    finished.finished_at = Some(Utc::now().to_rfc3339());
+    finished.results = vec![
+        result(&target, CaseId::Candy),
+        result(&target, CaseId::Pelican),
+    ];
+    finished.completed_cases = finished.results.len();
+    finished
+}
+
+#[test]
+fn deleting_one_run_removes_every_result_and_file_but_preserves_export() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let first = completed_run();
+    let retained = completed_run();
+    storage::finish(&paths, &first).unwrap();
+    storage::finish(&paths, &retained).unwrap();
+    let export = storage::export(&paths, &first.id).unwrap();
+    let exported_bytes = std::fs::read(&export.path).unwrap();
+    let state = EvaluationState::new(paths.clone());
+    let dashboard = state.remove(&[first.id.clone()]).unwrap();
+    assert_eq!(dashboard.history.len(), 1);
+    assert_eq!(dashboard.history[0].id, retained.id);
+    assert!(state.run(&first.id).is_err());
+    assert!(state.export(&first.id).is_err());
+    assert_eq!(state.activity().unwrap().records.len(), 2);
+    assert!(state
+        .activity()
+        .unwrap()
+        .records
+        .iter()
+        .all(|record| record.run_id == retained.id));
+    assert_eq!(std::fs::read(&export.path).unwrap(), exported_bytes);
+    assert!(!storage::run_path(&paths, &first.id).unwrap().exists());
+    assert!(!storage::directory(&paths).join(".deleting").exists());
+    assert!(!paths.config.exists());
+}
+
+#[test]
+fn batch_delete_deduplicates_ids_and_keeps_schedule_and_running_request() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let first = completed_run();
+    let second = completed_run();
+    storage::finish(&paths, &first).unwrap();
+    storage::finish(&paths, &second).unwrap();
+    let state = EvaluationState::new(paths.clone());
+    let mut store = storage::read(&paths).unwrap();
+    store.plan.schedule_enabled = true;
+    store.next_run_at = Some("2026-10-05T12:00:00Z".into());
+    storage::write(&paths, &store).unwrap();
+    let active = run(first.plan.clone());
+    storage::register(&paths, &active).unwrap();
+    let (sender, receiver) = watch::channel(false);
+    {
+        let mut runtime = state.runtime.lock().unwrap();
+        runtime.active = Some(active.clone());
+        runtime.cancel = Some(sender);
+    }
+    let dashboard = state
+        .remove(&[first.id.clone(), second.id.clone(), first.id.clone()])
+        .unwrap();
+    assert!(dashboard.history.is_empty());
+    assert!(state.activity().unwrap().records.is_empty());
+    assert_eq!(dashboard.plan, store.plan);
+    assert_eq!(dashboard.next_run_at, store.next_run_at);
+    assert_eq!(dashboard.active.unwrap().id, active.id);
+    assert_eq!(
+        storage::read(&paths).unwrap().active_run_id.as_deref(),
+        Some(active.id.as_str())
+    );
+    assert!(!*receiver.borrow());
+    assert!(state.run(&active.id).is_ok());
+    assert!(state.run(&first.id).is_err());
+    assert!(state.run(&second.id).is_err());
+}
+
+#[test]
+fn invalid_unknown_and_active_batch_members_leave_every_report_unchanged() {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let finished = completed_run();
+    storage::finish(&paths, &finished).unwrap();
+    let state = EvaluationState::new(paths.clone());
+    let active = run(finished.plan.clone());
+    storage::register(&paths, &active).unwrap();
+    {
+        let mut runtime = state.runtime.lock().unwrap();
+        runtime.active = Some(active.clone());
+    }
+    let index_path = storage::directory(&paths).join("index.json");
+    let index = std::fs::read(&index_path).unwrap();
+    let report_path = storage::run_path(&paths, &finished.id).unwrap();
+    let report = std::fs::read(&report_path).unwrap();
+    let invalid = vec![
+        vec![],
+        vec![finished.id.clone(), "../outside".into()],
+        vec![finished.id.clone(), uuid::Uuid::new_v4().to_string()],
+        vec![finished.id.clone(), active.id.clone()],
+        (0..101).map(|_| uuid::Uuid::new_v4().to_string()).collect(),
+    ];
+    for ids in invalid {
+        assert!(state.remove(&ids).is_err());
+        assert_eq!(std::fs::read(&index_path).unwrap(), index);
+        assert_eq!(std::fs::read(&report_path).unwrap(), report);
+        assert!(!storage::directory(&paths).join(".deleting").exists());
+    }
+    state.runtime.lock().unwrap().active = None;
+    assert!(state
+        .remove(&[finished.id.clone(), active.id])
+        .unwrap_err()
+        .contains("正在运行"));
+    assert_eq!(std::fs::read(&index_path).unwrap(), index);
+}
+
+#[test]
+fn deletion_recovers_staged_reports_before_commit_and_cleans_them_after_commit() {
+    for committed in [false, true] {
+        let directory = tempfile::tempdir().unwrap();
+        let paths = paths(directory.path());
+        let finished = completed_run();
+        storage::finish(&paths, &finished).unwrap();
+        let export = storage::export(&paths, &finished.id).unwrap();
+        let exported = std::fs::read(&export.path).unwrap();
+        let source = storage::run_path(&paths, &finished.id).unwrap();
+        let original = std::fs::read(&source).unwrap();
+        let staging = storage::directory(&paths).join(".deleting");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::rename(&source, staging.join(format!("{}.json", finished.id))).unwrap();
+        if committed {
+            let mut store = storage::read(&paths).unwrap();
+            store.history.clear();
+            store.records.clear();
+            storage::write(&paths, &store).unwrap();
+        }
+        for _ in 0..2 {
+            let state = EvaluationState::new(paths.clone());
+            let dashboard = state.dashboard().unwrap();
+            assert!(dashboard.error.is_none());
+            assert_eq!(dashboard.history.is_empty(), committed);
+            assert!(!staging.exists());
+            if committed {
+                assert!(!source.exists());
+                assert!(state.activity().unwrap().records.is_empty());
+            } else {
+                assert_eq!(std::fs::read(&source).unwrap(), original);
+                assert_eq!(state.activity().unwrap().records.len(), 2);
+            }
+            assert_eq!(std::fs::read(&export.path).unwrap(), exported);
+        }
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn deletion_restores_batch_files_when_windows_blocks_index_commit() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::{FILE_SHARE_READ, FILE_SHARE_WRITE};
+    let directory = tempfile::tempdir().unwrap();
+    let paths = paths(directory.path());
+    let first = completed_run();
+    let second = completed_run();
+    storage::finish(&paths, &first).unwrap();
+    storage::finish(&paths, &second).unwrap();
+    let state = EvaluationState::new(paths.clone());
+    let index_path = storage::directory(&paths).join("index.json");
+    let index = std::fs::read(&index_path).unwrap();
+    let handle = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .open(&index_path)
+        .unwrap();
+    assert!(state
+        .remove(&[first.id.clone(), second.id.clone()])
+        .is_err());
+    assert_eq!(std::fs::read(&index_path).unwrap(), index);
+    assert!(state.run(&first.id).is_ok());
+    assert!(state.run(&second.id).is_ok());
+    assert_eq!(state.activity().unwrap().records.len(), 4);
+    assert!(!storage::directory(&paths).join(".deleting").exists());
+    drop(handle);
+}
+
 #[test]
 fn removed_targets_do_not_prevent_disabling_a_schedule() {
     let directory = tempfile::tempdir().unwrap();
