@@ -2,15 +2,15 @@
 
 Windows 上的 Codex 渠道、模型与配置助手。安装后从桌面打开，添加第三方 API 地址和 Key，发现并启用模型，再将统一模型库接入官方 Codex。日常编程任务仍在官方客户端中完成。
 
-当前版本：**0.11.0 Beta**。面向日常使用的 Windows 桌面工具，包含渠道、模型库、评测、线程、诊断、恢复六个工作区，以及浅色、深色和跟随系统的外观模式。用户不需要安装 Node.js、Rust 或开发工具。
+当前版本：**0.11.1 Beta**。面向日常使用的 Windows 桌面工具，包含渠道、模型库、评测、线程、诊断、恢复六个工作区，以及浅色、深色和跟随系统的外观模式。用户不需要安装 Node.js、Rust 或开发工具。
 
-[下载最新版](https://github.com/diaomin66/Vela/releases/latest) · [线程保护与找回](docs/THREADS.md) · [自定义数据位置](docs/LOCATIONS.md) · [模型推理能力与官方依据](docs/model-capabilities.md) · [模型评测说明](docs/EVALUATIONS.md) · [诊断与修复](docs/DIAGNOSTICS.md) · [常见问题](docs/TROUBLESHOOTING.md) · [发布说明](docs/releases/0.11.0.md)
+[下载最新版](https://github.com/diaomin66/Vela/releases/latest) · [线程保护与找回](docs/THREADS.md) · [自定义数据位置](docs/LOCATIONS.md) · [模型推理能力与官方依据](docs/model-capabilities.md) · [模型评测说明](docs/EVALUATIONS.md) · [诊断与修复](docs/DIAGNOSTICS.md) · [常见问题](docs/TROUBLESHOOTING.md) · [发布说明](docs/releases/0.11.1.md)
 
 AhaX 是 Vela 的新产品名称。仓库与更新源仍为 `diaomin66/Vela`；已有渠道、凭据、模型路由和数据目录继续使用兼容标识，无需因为改名重新添加 Key。安装器包含沿用旧安装路径的迁移处理，具体安装与升级验收范围以 [0.7.0 验收记录](docs/validation/0.7.0.md) 为准。
 
 ## 安装与使用
 
-1. 从系统托盘退出已运行的 AhaX 或 Vela，下载并双击 `AhaX_0.11.0_x64-setup.exe`，安装后从桌面或开始菜单打开。0.4 及之后的版本也可在设置中使用内置更新。
+1. 从系统托盘退出已运行的 AhaX 或 Vela，下载并双击 `AhaX_0.11.1_x64-setup.exe`，安装后从桌面或开始菜单打开。0.4 及之后的版本也可在设置中使用内置更新。
 2. 添加渠道名称、API 地址、API Key。点击「拉取模型与余额」保存渠道并读取元数据。
 3. 启用需要的模型，也可手动添加模型 ID。点击模型右侧的设置入口，修改显示备注、推理档位和默认强度。自动发现的新模型默认不启用。
 4. 在「模型库」预览并接入 Codex。模型显示为 `渠道名称（模型 ID）`；填写备注时为 `渠道名称 · 备注（模型 ID）`。
@@ -30,7 +30,7 @@ AhaX 是 Vela 的新产品名称。仓库与更新源仍为 `diaomin66/Vela`；�
 - 评测结果明确标注模型、渠道、推理强度与耗时，压缩顶部无效留白，让作品和时间线更早出现。
 - 设置、模型编辑和计划使用浮动圆角抽屉、填充式控件和轻量下拉；外观选择提供窗口预览。
 
-详细变化见 [0.11.0 发布说明](docs/releases/0.11.0.md)，界面规范见 [界面设计规范](docs/UI_GUIDELINES.md)。
+详细变化见 [0.11.1 发布说明](docs/releases/0.11.1.md)，界面规范见 [界面设计规范](docs/UI_GUIDELINES.md)。
 
 ![浅色渠道工作区](docs/images/0.11-channels-light.png)
 

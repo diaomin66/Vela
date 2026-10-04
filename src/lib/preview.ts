@@ -18,7 +18,7 @@ const demoReasoning = (model: ChannelModel) => {
 
 export function createPreviewApi(): AppApi {
   const state: Dashboard = {
-    environment: { platform: 'Windows · 演示', codexInstalled: false, configPath: '%USERPROFILE%\\.codex\\config.toml', configExists: false, configValid: true, appVersion: '0.11.0', desktopMode: false },
+    environment: { platform: 'Windows · 演示', codexInstalled: false, configPath: '%USERPROFILE%\\.codex\\config.toml', configExists: false, configValid: true, appVersion: '0.11.1', desktopMode: false },
     profiles: [
       { id: 'demo-work', name: '主力渠道', baseUrl: 'https://api.example.com', resolvedBaseUrl: 'https://api.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '编程主力', enabled: true }, { id: 'example-pro', alias: '', enabled: true }, { id: 'example-fast', alias: '', enabled: false }], balanceConfig: { mode: 'auto' }, balance: { status: 'available', remaining: 128.50, unit: '站点计费单位', source: '示例数据', checkedAt: now() }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },
       { id: 'demo-lab', name: '备用渠道', baseUrl: 'https://gateway.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '', enabled: true }, { id: 'example-reasoning', alias: '', enabled: true }], balanceConfig: { mode: 'auto' }, balance: { status: 'unsupported', remaining: null, unit: '额度', source: '示例数据', checkedAt: now(), message: '该服务商不提供可识别的余额接口。' }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },

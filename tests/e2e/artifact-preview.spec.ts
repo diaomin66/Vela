@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 
 const animation = `<!doctype html><html><head><style>@keyframes drift{to{transform:translateX(100px)}}#css{animation:drift 2s linear infinite}</style></head><body><svg width="400" height="200"><circle id="smil" cx="10" cy="40" r="8"><animate attributeName="cx" values="10;200;10" dur="2s" repeatCount="indefinite"/></circle><circle id="css" cx="10" cy="80" r="8"/></svg><output id="frames">0</output><output id="ticks">0</output><script>let count=0;function step(){document.getElementById('frames').textContent=String(++count);requestAnimationFrame(step)}requestAnimationFrame(step);setInterval(()=>document.getElementById('ticks').textContent=String(Number(document.getElementById('ticks').textContent)+1),25);</script></body></html>`;
 
-type FixtureWindow = Window & { fixtureViolations: { directive: string; blockedURI: string }[] };
+type FixtureWindow = typeof window & { fixtureViolations: { directive: string; blockedURI: string }[] };
 
 async function mount(page: Page, html: string, waitForBody = true) {
   await page.route('http://127.0.0.1:1420/', (route) => route.fulfill({ contentType: 'text/html', headers: { 'Content-Security-Policy': "frame-src 'none'; object-src 'none'; base-uri 'self'" }, body: '<!doctype html><html><body></body></html>' }));
