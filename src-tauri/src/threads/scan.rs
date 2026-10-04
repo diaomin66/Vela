@@ -28,6 +28,33 @@ pub(super) fn checkpoint(paths: &AppPaths) -> Result<ThreadIndex, String> {
     run_with_mode(paths, false, true)
 }
 
+pub(super) fn deletion_checkpoint(paths: &AppPaths) -> Result<ThreadIndex, String> {
+    let mut index = storage::read(paths)?;
+    let settings = index.settings.clone();
+    index.settings.enabled = true;
+    index.settings.include_archived = true;
+    let mut roots = vec![paths.codex_home()];
+    roots.extend(
+        index
+            .sources
+            .iter()
+            .map(|source| PathBuf::from(&source.root)),
+    );
+    let mut index = run_scan(paths, index, roots, true)?;
+    index.settings = settings;
+    Ok(index)
+}
+
+pub(super) fn deletion_paths(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let discovered = files::discover(root, true);
+    if let Some(error) = discovered.error {
+        return Err(error);
+    }
+    Ok(discovered.paths.into_iter().map(|(path, _)| path).collect())
+}
+
+pub(super) use parsing::{filename_id, filename_rollout_id};
+
 fn run_with_mode(paths: &AppPaths, force: bool, checkpoint: bool) -> Result<ThreadIndex, String> {
     let mut index = storage::read(paths)?;
     let enabled = index.settings.enabled;
@@ -45,11 +72,7 @@ fn run_with_mode(paths: &AppPaths, force: bool, checkpoint: bool) -> Result<Thre
             .iter()
             .map(|source| PathBuf::from(&source.root)),
     );
-    let sqlite_home = std::env::var_os("CODEX_SQLITE_HOME")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute());
-    let mut index = run_scan(paths, index, roots, sqlite_home.as_deref(), force)?;
+    let mut index = run_scan(paths, index, roots, force)?;
     index.settings.enabled = enabled;
     Ok(index)
 }
@@ -60,22 +83,27 @@ fn run_with_sources(
     index: ThreadIndex,
     roots: Vec<PathBuf>,
 ) -> Result<ThreadIndex, String> {
-    run_scan(paths, index, roots, None, true)
+    run_scan(paths, index, roots, true)
 }
 
 fn run_scan(
     paths: &AppPaths,
     mut index: ThreadIndex,
     roots: Vec<PathBuf>,
-    sqlite_home: Option<&Path>,
     force: bool,
 ) -> Result<ThreadIndex, String> {
+    let tombstones = storage::tombstones(paths)?;
     let at = Utc::now().to_rfc3339();
     let revision = Uuid::new_v4().to_string();
     let previous: HashMap<_, _> = index
         .threads
         .drain(..)
         .map(|thread| (thread.key.clone(), thread))
+        .collect();
+    let previous_sources: HashMap<_, _> = index
+        .sources
+        .iter()
+        .map(|source| (source.id.clone(), source.clone()))
         .collect();
     let mut threads = Vec::new();
     let mut sources = Vec::new();
@@ -104,6 +132,9 @@ fn run_scan(
             id: source_id.clone(),
             kind: "local".into(),
             root: root.to_string_lossy().into_owned(),
+            sqlite_home: previous_sources
+                .get(&source_id)
+                .and_then(|source| source.sqlite_home.clone()),
             display_root: files::display_path(&root),
             available,
             writable: fs::metadata(&root)
@@ -124,16 +155,19 @@ fn run_scan(
         }
         available_sources.insert(source_id.clone());
         let names = parsing::read_names(&root);
-        let state_home = if paths.config.parent().is_some_and(|current| {
-            files::normalized_path(
-                &fs::canonicalize(current).unwrap_or_else(|_| current.to_path_buf()),
-            ) == normalized
-        }) {
-            sqlite_home
-        } else {
-            None
-        };
-        let state = state::read(&root, state_home);
+        let state =
+            match crate::locations::source_sqlite_home(paths, &root, source.sqlite_home.as_deref())
+            {
+                Ok(sqlite_home) => {
+                    source.sqlite_home = Some(files::display_path(&sqlite_home));
+                    state::read(&root, Some(&sqlite_home))
+                }
+                Err(error) => {
+                    source.error = Some(error.clone());
+                    errors.push(error);
+                    state::StateIndex::unavailable()
+                }
+            };
         let discovered = files::discover(&root, index.settings.include_archived);
         if let Some(error) = discovered.error {
             source.error = Some(error.clone());
@@ -340,6 +374,9 @@ fn run_scan(
         threads.push(old);
     }
 
+    threads.retain(|thread| {
+        !tombstones.contains(&(thread.source_id.clone(), thread.thread_id.clone()))
+    });
     dependencies::apply(&mut threads);
     threads.sort_by(|left, right| {
         right

@@ -8,6 +8,7 @@ import { Select } from './Select';
 import { UpdatePanel } from './UpdatePanel';
 import { useTheme, type ThemeMode } from '../lib/theme';
 import { APP_NAME } from '../lib/brand';
+import { LocationSettings } from './LocationSettings';
 
 const REFRESH_INTERVALS = [5, 15, 30, 60, 120, 360, 1440];
 const appearanceOptions = [{ value: 'system', label: '跟随系统', icon: Monitor }, { value: 'light', label: '浅色', icon: Sun }, { value: 'dark', label: '深色', icon: Moon }] as const;
@@ -16,18 +17,22 @@ export function SettingsDialog({ data, onClose, onSaved }: { data: Dashboard; on
   const appearance = useTheme();
   const [settings, setSettings] = useState(data.settings);
   const [busy, setBusy] = useState(false);
+  const [locationsBusy, setLocationsBusy] = useState(false);
+  const [locationsDirty, setLocationsDirty] = useState(false);
+  const [page, setPage] = useState<'general' | 'locations'>('general');
   const [advanced, setAdvanced] = useState(false);
   const [customRefresh, setCustomRefresh] = useState(!REFRESH_INTERVALS.includes(settings.refreshMinutes));
   const [error, setError] = useState<string | null>(null);
   async function save(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(null);
+    event.preventDefault(); if (locationsBusy || locationsDirty) return; setBusy(true); setError(null);
     try { await api.saveSettings(settings); await onSaved(); }
     catch (err) { setError(errorMessage(err)); }
     finally { setBusy(false); }
   }
   const changedConnection = settings.providerName !== data.settings.providerName || settings.gatewayPort !== data.settings.gatewayPort;
-  return <Drawer title={`${APP_NAME} 设置`} onClose={onClose} locked={busy}>
-    <form className="editor-form" onSubmit={save}>
+  return <Drawer title={`${APP_NAME} 设置`} onClose={onClose} locked={busy || locationsBusy}>
+    <nav className="settings-pages" aria-label="设置页面"><button type="button" aria-current={page === 'general' ? 'page' : undefined} disabled={busy || locationsBusy} onClick={() => setPage('general')}>常规</button><button type="button" aria-current={page === 'locations' ? 'page' : undefined} disabled={busy || locationsBusy} onClick={() => setPage('locations')}>数据位置</button></nav>
+    <form className="editor-form" style={page !== 'general' ? { display: 'none' } : undefined} onSubmit={save}>
       <div className="editor-scroll">
         <section className="editor-section appearance-section">
           <fieldset className="appearance-options"><legend>外观</legend>{appearanceOptions.map(({ value, label, icon: Icon }) => <label key={value}><input type="radio" name="appearance" value={value} checked={appearance.mode === value} onChange={() => appearance.setMode(value as ThemeMode)}/><span><Icon size={19}/><strong>{label}</strong></span></label>)}</fieldset>
@@ -49,10 +54,12 @@ export function SettingsDialog({ data, onClose, onSaved }: { data: Dashboard; on
         </section>
       </div>
       <footer className="editor-footer">
+        {locationsDirty && <p className="editor-demo-note">数据位置有未保存的更改。<button type="button" className="text-button" onClick={() => setPage('locations')}>前往处理</button></p>}
         {changedConnection && <p className="editor-demo-note">保存后需重新应用 Codex 配置。</p>}
         {error && <div className="inline-error" role="alert">{error}</div>}
-        <div className="editor-footer-actions"><span className="editor-footer-status"/><button type="button" className="button button-quiet" disabled={busy} onClick={onClose}>取消</button><button type="submit" className="button button-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16}/> : <Check size={16}/>}保存设置</button></div>
+        <div className="editor-footer-actions"><span className="editor-footer-status"/><button type="button" className="button button-quiet" disabled={busy || locationsBusy} onClick={onClose}>取消</button><button type="submit" className="button button-primary" disabled={busy || locationsBusy || locationsDirty}>{busy ? <LoaderCircle className="spin" size={16}/> : <Check size={16}/>}保存设置</button></div>
       </footer>
     </form>
+    <div className="settings-location-page editor-form" style={page !== 'locations' ? { display: 'none' } : undefined}><LocationSettings onBusyChange={setLocationsBusy} onDirtyChange={setLocationsDirty}/></div>
   </Drawer>;
 }

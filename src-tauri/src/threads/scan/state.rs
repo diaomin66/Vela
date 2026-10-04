@@ -17,6 +17,12 @@ struct Row {
 }
 
 impl StateIndex {
+    pub(super) fn unavailable() -> Self {
+        Self {
+            readable: false,
+            rows: HashMap::new(),
+        }
+    }
     pub(super) fn apply(&self, thread: &mut ThreadSummary) {
         if !self.readable {
             thread.state_index = Some("unavailable".into());
@@ -65,10 +71,7 @@ pub(super) fn read(root: &Path, sqlite_home: Option<&Path>) -> StateIndex {
             readable: true,
             rows,
         },
-        Err(_) => StateIndex {
-            readable: false,
-            rows: HashMap::new(),
-        },
+        Err(_) => StateIndex::unavailable(),
     }
 }
 

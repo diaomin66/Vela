@@ -8,6 +8,7 @@ pub(super) fn fixture(root: &Path) -> (AppPaths, ThreadSource, ThreadSummary, Ve
         data: root.join("data"),
         config: source.join("config.toml"),
         helper: root.join("helper.exe"),
+            locations: None,
     };
     fs::create_dir_all(&source).unwrap();
     let id = uuid::Uuid::new_v4().to_string();
@@ -21,6 +22,7 @@ pub(super) fn fixture(root: &Path) -> (AppPaths, ThreadSource, ThreadSummary, Ve
         id: source_id.clone(),
         kind: "local".into(),
         root: source.to_string_lossy().into_owned(),
+        sqlite_home: None,
         display_root: "fixture".into(),
         available: true,
         writable: true,

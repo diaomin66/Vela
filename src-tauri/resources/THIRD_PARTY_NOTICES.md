@@ -29,3 +29,10 @@ The thread subsystem uses the installed versions pinned in `Cargo.lock`:
 - Zstandard 1.5.7 through `zstd-sys` 2.1.0, BSD-3-Clause; copyright Meta Platforms, Inc. and affiliates. License included as `LICENSE.zstandard`.
 
 These libraries provide SQLite transactions/online backup and decoding of compressed local history. AhaX's inventory, snapshot manifests, recovery policy, protocol adapter, and interface are separate implementations.
+
+## Native folder selection
+
+- `tauri-plugin-dialog` 2.8.1 and its `tauri-plugin-fs` 2.6.0 dependency, used under the MIT license; copyright 2017 - Present Tauri Apps Contributors. License included as `LICENSE.tauri-plugins`.
+- `rfd` 0.16.0, MIT; copyright 2022 Bartłomiej Maryńczak. License included as `LICENSE.rfd`.
+
+The native folder picker uses the official Tauri dialog plugin. The main window has permission to open the dialog; no general filesystem read or write command permission is granted to the web frontend.

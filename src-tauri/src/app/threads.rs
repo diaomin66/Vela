@@ -10,6 +10,36 @@ async fn blocking<T: Send + 'static>(
         .map_err(|_| "线程任务意外中断，请重试。".to_string())?
 }
 
+#[tauri::command]
+pub(super) async fn preview_thread_deletion(state: State<'_, ThreadState>, keys: Vec<String>) -> Result<ThreadDeletionPreview, String> {
+    let state = state.inner().clone();
+    blocking(move || state.preview_delete(keys)).await
+}
+
+#[tauri::command]
+pub(super) async fn delete_threads(state: State<'_, ThreadState>, keys: Vec<String>, expected_hash: String) -> Result<ThreadDeletionResult, String> {
+    let state = state.inner().clone();
+    blocking(move || state.delete(keys, expected_hash)).await
+}
+
+#[tauri::command]
+pub(super) async fn list_thread_trash(state: State<'_, ThreadState>, offset: u32, limit: u32) -> Result<ThreadTrashPage, String> {
+    let state = state.inner().clone();
+    blocking(move || state.list_trash(offset, limit)).await
+}
+
+#[tauri::command]
+pub(super) async fn preview_thread_trash_restore(state: State<'_, ThreadState>, id: String) -> Result<ThreadTrashRestorePreview, String> {
+    let state = state.inner().clone();
+    blocking(move || state.preview_trash_restore(id)).await
+}
+
+#[tauri::command]
+pub(super) async fn restore_thread_trash(state: State<'_, ThreadState>, id: String, expected_hash: String) -> Result<ThreadDeletionResult, String> {
+    let state = state.inner().clone();
+    blocking(move || state.restore_trash(id, expected_hash)).await
+}
+
 fn compact(mut dashboard: ThreadDashboard) -> ThreadDashboard {
     dashboard.threads.clear();
     dashboard

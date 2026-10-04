@@ -15,7 +15,7 @@ pub fn run_credential_mode() -> bool {
             std::process::exit(2);
         }
         let outcome = (|| -> Result<(), String> {
-            let paths = AppPaths::discover()?;
+            let paths = AppPaths::discover_identity()?;
             let token = Zeroizing::new(security::gateway_token(&paths)?);
             let port = effective_gateway_port(&paths, &core::load_store(&paths)?);
             let runtime = tokio::runtime::Builder::new_current_thread()

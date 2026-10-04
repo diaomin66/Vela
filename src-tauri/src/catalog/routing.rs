@@ -144,6 +144,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("config.toml"),
             helper: directory.path().join("vela.exe"),
+            locations: None,
         };
         let store = serde_json::from_value(json!({"profiles":[{"id":"e7ca67be-ae4f-4ad1-bef2-035b892be342","name":"Fixture","baseUrl":"https://example.test/v1","model":"upstream","keyStored":false,"createdAt":"now","updatedAt":"now","models":[{"id":"upstream","enabled":true}]}]})).unwrap();
         (directory, paths, store)

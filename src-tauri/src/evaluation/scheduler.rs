@@ -43,6 +43,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("unused"),
             helper: directory.path().join("helper"),
+            locations: None,
         };
         let now = Utc::now();
         assert!(claim(&paths, now).unwrap().is_none());

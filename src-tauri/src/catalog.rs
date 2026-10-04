@@ -687,6 +687,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("config.toml"),
             helper: directory.path().join("vela.exe"),
+            locations: None,
         };
         let store = sample();
         let config = render("", &paths, &store, &entries(&store.profiles)[0].route_id)
@@ -706,6 +707,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config.toml"),
             helper: dir.path().join("vela.exe"),
+            locations: None,
         };
         let mut store = sample();
         let route = entries(&store.profiles)[0].route_id.clone();
@@ -734,6 +736,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let store = sample();
         assert!(render(
@@ -779,6 +782,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let store = sample();
         let current = "# preserved\nprofile=\"work\"\nmodel_reasoning_effort=\"xhigh\"\nmodel_supports_reasoning_summaries=true\nmodel_reasoning_summary=\"detailed\"\n[profiles.work]\nmodel_reasoning_effort=\"high\"\nmodel_reasoning_summary=\"auto\"\nmodel_supports_reasoning_summaries=false\nsandbox_mode=\"read-only\"\n[profiles.other]\nmodel_reasoning_effort=\"xhigh\"\n";
@@ -816,6 +820,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let mut store = sample();
         store.profiles[0].models[0].id = "gpt-5.4".into();
@@ -843,6 +848,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("config"),
             helper: directory.path().join("helper"),
+            locations: None,
         };
         let store = sample();
         let current = "profile=\"work\"\nmodel_catalog_json=\"old-root.json\"\n[profiles.work]\nmodel_catalog_json=\"old-active.json\"\nsandbox_mode=\"read-only\"\n[profiles.other]\nmodel_catalog_json=\"keep-other.json\"\n";
@@ -914,6 +920,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("config"),
             helper: directory.path().join("helper"),
+            locations: None,
         };
         write_model_catalog(&paths, &store).unwrap();
         let mut config = render(
@@ -1022,6 +1029,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let store = disjoint_reasoning_models();
         let routes = entries(&store.profiles);
@@ -1058,6 +1066,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let store = disjoint_reasoning_models();
         let routes = entries(&store.profiles);
@@ -1105,6 +1114,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let mut store = disjoint_reasoning_models();
         store.profiles[0].models[1].enabled = false;
@@ -1147,6 +1157,7 @@ mod tests {
             data: dir.path().join("data"),
             config: dir.path().join("config"),
             helper: dir.path().join("helper"),
+            locations: None,
         };
         let store = sample();
         let original = render("", &paths, &store, &entries(&store.profiles)[0].route_id).unwrap();

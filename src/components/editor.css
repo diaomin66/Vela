@@ -125,6 +125,21 @@
 .editor-settings-path { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; }
 .editor-settings-path > span { font-size: 12px; color: var(--muted); }
 .editor-settings-path code { font-size: 11px; line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
+.location-settings { background: var(--surface-soft); border-radius: 17px; overflow: hidden; }
+.location-settings-title { display: inline-flex; align-items: center; gap: 8px; }
+.location-summary { padding: 0 16px 15px; color: var(--muted); font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.location-fields { padding: 0 16px 16px; }
+.location-field { margin-top: 13px; }
+.location-field small { color: var(--muted); font-size: 10px; line-height: 1.6; }
+.location-preview { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; padding: 13px; border-radius: 13px; background: var(--surface); font-size: 11px; }
+.location-preview > strong { font-size: 12px; font-weight: 600; }
+.location-preview > div { display: flex; flex-direction: column; gap: 3px; padding-top: 8px; border-top: 1px solid var(--border); }
+.location-preview span, .location-preview small { color: var(--muted); }
+.location-preview code { overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+.location-warning, .location-restart { margin-top: 10px; padding: 10px 11px; border-radius: 11px; color: var(--warning); background: var(--warning-soft); font-size: 11px; line-height: 1.7; }
+.location-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.location-actions .button { min-height: 35px; font-size: 11px; }
+.location-loading { display: flex; align-items: center; gap: 8px; padding: 16px; color: var(--muted); font-size: 11px; }
 .vela-select { min-width: 0; width: 100%; }
 .vela-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; border: 0; padding: 10px 13px; border-radius: 13px; background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 13px; text-align: left; line-height: 1.5; }
 .vela-select-trigger > span { min-width: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
@@ -162,3 +177,34 @@
   .editor-settings-toggle input { right: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .vela-drawer[open], .vela-select-popup:popover-open { animation: none; } .vela-select-trigger > svg, .editor-disclosure svg { transition: none; } }
+
+.location-input { display: flex; align-items: center; gap: 7px; }
+.location-input > input { flex: 1; min-width: 0; }
+.location-input > .icon-button { flex-shrink: 0; width: 35px; height: 38px; border-radius: 12px; background: var(--surface-soft); }
+.location-current, .location-next { display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 7px; font-size: 10px; line-height: 1.7; color: var(--muted); }
+.location-current code, .location-next code { font: inherit; overflow-wrap: anywhere; }
+.location-next { color: var(--ink); }
+.location-field > label { margin-bottom: 0; }
+.location-load-error { padding-top: 14px; }
+.location-load-error > strong { font-size: 12px; font-weight: 550; }
+.location-load-error .button { margin-top: 12px; font-size: 11px; }
+.location-summary { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .location-actions { flex-wrap: wrap; } .location-actions .button { padding-inline: 10px; } }
+
+.settings-pages { display: flex; gap: 5px; padding: 4px; margin: 0 28px 22px; background: var(--surface-soft); border-radius: 13px; flex-shrink: 0; }
+.settings-pages button { flex: 1; padding: 9px 12px; border-radius: 10px; font-size: 12px; color: var(--muted); }
+.settings-pages button[aria-current] { background: var(--surface); color: var(--ink); font-weight: 550; box-shadow: 0 1px 4px rgb(0 0 0 / .035); }
+.settings-location-page, .location-page { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.location-page { background: transparent; border-radius: 0; }
+.location-page-scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 28px 24px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+.location-page .location-field { margin-top: 23px; }
+.location-page .location-field > label { font-size: 12px; }
+.location-page .location-actions { margin-top: 0; justify-content: space-between; }
+.location-page .location-actions .button { min-height: 38px; font-size: 12px; }
+.location-restart .text-button { margin-top: 8px; font-size: 11px; }
+.settings-location-page > .editor-section { margin: 0 28px; }
+@media (max-width: 600px) {
+  .settings-pages { margin: 0 20px 20px; }
+  .location-page-scroll { padding: 0 20px 20px; }
+  .location-page .location-actions .button { font-size: 11px; }
+}

@@ -6,6 +6,8 @@ pub struct ThreadSource {
     pub id: String,
     pub kind: String,
     pub root: String,
+    #[serde(default)]
+    pub sqlite_home: Option<String>,
     pub display_root: String,
     pub available: bool,
     pub writable: bool,
@@ -197,7 +199,14 @@ pub struct ThreadListQuery {
 
 impl Default for ThreadListQuery {
     fn default() -> Self {
-        Self { search: String::new(), scope: "all".into(), status: "all".into(), source_id: None, offset: 0, limit: 50 }
+        Self {
+            search: String::new(),
+            scope: "all".into(),
+            status: "all".into(),
+            source_id: None,
+            offset: 0,
+            limit: 50,
+        }
     }
 }
 
@@ -209,6 +218,82 @@ pub struct ThreadPage {
     pub offset: u32,
     pub limit: u32,
     pub scan_revision: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadDeletionItem {
+    pub key: String,
+    pub thread_id: String,
+    pub source_id: String,
+    pub title: Option<String>,
+    pub rollout_count: u64,
+    pub bytes: u64,
+    pub can_delete: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadDeletionPreview {
+    pub expected_hash: String,
+    pub items: Vec<ThreadDeletionItem>,
+    pub logical_count: u64,
+    pub rollout_count: u64,
+    pub warning: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadDeletionResultItem {
+    pub key: String,
+    pub thread_id: String,
+    pub status: String,
+    pub trash_id: Option<String>,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadDeletionResult {
+    pub items: Vec<ThreadDeletionResultItem>,
+    pub deleted_count: u64,
+    pub failed_count: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadTrashItem {
+    pub id: String,
+    pub thread_id: String,
+    pub source_id: String,
+    pub title: Option<String>,
+    pub deleted_at: String,
+    pub rollout_count: u64,
+    pub bytes: u64,
+    pub state: String,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadTrashPage {
+    pub items: Vec<ThreadTrashItem>,
+    pub total: u64,
+    pub offset: u32,
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadTrashRestorePreview {
+    pub id: String,
+    pub thread_id: String,
+    pub rollout_count: u64,
+    pub expected_hash: String,
+    pub can_restore: bool,
+    pub reason: Option<String>,
+    pub warning: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -164,6 +164,7 @@ fn paths(directory: &std::path::Path) -> AppPaths {
         data: directory.join("data"),
         config: directory.join("unused-config"),
         helper: directory.join("unused-helper"),
+        locations: None,
     }
 }
 

@@ -1,5 +1,5 @@
 use super::{
-    paths::{self, directory},
+    paths::{self, directory, index_directory},
     vault,
 };
 use crate::{
@@ -20,7 +20,7 @@ use zeroize::Zeroizing;
 const SCHEMA_VERSION: i64 = 1;
 
 fn lock(paths: &AppPaths) -> Result<File, String> {
-    let folder = directory(paths);
+    let folder = index_directory(paths);
     paths::ensure_directory(&folder)?;
     let path = folder.join("catalog.lock");
     paths::guard_path(&path, true)?;
@@ -67,7 +67,8 @@ fn open_at(path: &Path, writable: bool) -> Result<Connection, String> {
 }
 
 pub(in crate::threads) fn read(paths: &AppPaths) -> Result<ThreadIndex, String> {
-    let path = directory(paths).join("inventory.sqlite3");
+    super::delete::tombstones(paths)?;
+    let path = index_directory(paths).join("inventory.sqlite3");
     if !path.exists() {
         return Ok(ThreadIndex::default());
     }
@@ -114,7 +115,19 @@ pub(in crate::threads) fn read(paths: &AppPaths) -> Result<ThreadIndex, String> 
         }
     }
     transaction.commit().map_err(|_| "无法完成线程索引读取。")?;
+    filter_deleted(paths, &mut index)?;
     Ok(index)
+}
+
+
+fn filter_deleted(paths: &AppPaths, index: &mut ThreadIndex) -> Result<(), String> {
+    let tombstones = super::delete::tombstones(paths)?;
+    index.threads.retain(|thread| !tombstones.contains(&(thread.source_id.clone(), thread.thread_id.clone())));
+    index.protection.protected_count = index.threads.iter().filter(|thread| thread.snapshot == SnapshotState::Protected).count() as u64;
+    index.protection.pending_count = index.threads.iter().filter(|thread| thread.snapshot == SnapshotState::Pending).count() as u64;
+    index.protection.failed_count = index.threads.iter().filter(|thread| matches!(thread.snapshot, SnapshotState::Failed | SnapshotState::Missing | SnapshotState::TooLarge)).count() as u64;
+    index.protection.bytes_protected = index.threads.iter().filter_map(|thread| thread.protected_bytes).sum();
+    Ok(())
 }
 
 fn metadata(connection: &Connection) -> Result<ThreadIndex, String> {
@@ -130,7 +143,8 @@ fn metadata(connection: &Connection) -> Result<ThreadIndex, String> {
 }
 
 pub(in crate::threads) fn read_state(paths: &AppPaths) -> Result<ThreadIndex, String> {
-    let path = directory(paths).join("inventory.sqlite3");
+    super::delete::tombstones(paths)?;
+    let path = index_directory(paths).join("inventory.sqlite3");
     if !path.exists() {
         return Ok(ThreadIndex::default());
     }
@@ -141,10 +155,11 @@ pub(in crate::threads) fn lookup(
     paths: &AppPaths,
     key: &str,
 ) -> Result<Option<ThreadSummary>, String> {
+    let hidden = super::delete::tombstones(paths)?;
     if key.is_empty() || key.len() > 256 {
         return Err("线程标识无效。".into());
     }
-    let path = directory(paths).join("inventory.sqlite3");
+    let path = index_directory(paths).join("inventory.sqlite3");
     if !path.exists() {
         return Ok(None);
     }
@@ -155,16 +170,18 @@ pub(in crate::threads) fn lookup(
         })
         .optional()
         .map_err(|_| "无法读取所选线程。")?;
-    row.map(|text| serde_json::from_str(&text).map_err(|_| "线程记录无法解析。".into()))
-        .transpose()
+    let thread: Option<ThreadSummary> = row.map(|text| serde_json::from_str(&text).map_err(|_| "线程记录无法解析。".to_owned())).transpose()?;
+    Ok(thread.filter(|thread| !hidden.contains(&(thread.source_id.clone(), thread.thread_id.clone()))))
 }
 
 pub(in crate::threads) fn overview(paths: &AppPaths) -> Result<ThreadDashboard, String> {
-    let path = directory(paths).join("inventory.sqlite3");
+    let hidden = super::delete::tombstones(paths)?;
+    let path = index_directory(paths).join("inventory.sqlite3");
     let mut index = ThreadIndex::default();
     let mut counts = (0u64, 0u64, 0u64, 0u64);
     if path.exists() {
         let connection = open_at(&path, false)?;
+        attach_hidden(&connection, &hidden)?;
         let transaction = connection
             .unchecked_transaction()
             .map_err(|_| "无法读取线程保护概览。")?;
@@ -183,7 +200,7 @@ pub(in crate::threads) fn overview(paths: &AppPaths) -> Result<ThreadDashboard, 
                 );
             }
         }
-        let raw: (i64,i64,i64,i64) = transaction.query_row("SELECT COUNT(*), COALESCE(SUM(json_extract(body,'$.snapshot')='protected'),0), COALESCE(SUM(recoverability='recoverable'),0), COALESCE(SUM(integrity!='valid' OR json_extract(body,'$.snapshot')!='protected' OR json_extract(body,'$.stateIndex')='missing'),0) FROM threads", [], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| "无法读取线程保护统计。")?;
+        let raw: (i64,i64,i64,i64) = transaction.query_row("SELECT COUNT(*), COALESCE(SUM(json_extract(body,'$.snapshot')='protected'),0), COALESCE(SUM(recoverability='recoverable'),0), COALESCE(SUM(integrity!='valid' OR json_extract(body,'$.snapshot')!='protected' OR json_extract(body,'$.stateIndex')='missing'),0) FROM threads WHERE NOT EXISTS(SELECT 1 FROM hidden_threads h WHERE h.source_id=threads.source_id AND h.thread_id=threads.thread_id)", [], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?))).map_err(|_| "无法读取线程保护统计。")?;
         counts = (
             unsigned(raw.0)?,
             unsigned(raw.1)?,
@@ -213,6 +230,7 @@ pub(in crate::threads) fn page(
     paths: &AppPaths,
     query: &ThreadListQuery,
 ) -> Result<ThreadPage, String> {
+    let hidden = super::delete::tombstones(paths)?;
     if query.limit == 0 || query.limit > 100 || query.search.chars().count() > 200 {
         return Err("每页显示数量需为 1–100 条，搜索内容不能超过 200 字。".into());
     }
@@ -227,7 +245,7 @@ pub(in crate::threads) fn page(
     if let Some(source) = &query.source_id {
         paths::safe_id(source)?;
     }
-    let path = directory(paths).join("inventory.sqlite3");
+    let path = index_directory(paths).join("inventory.sqlite3");
     let mut result = ThreadPage {
         threads: Vec::new(),
         total: 0,
@@ -242,6 +260,7 @@ pub(in crate::threads) fn page(
     let transaction = connection
         .unchecked_transaction()
         .map_err(|_| "无法读取线程列表。")?;
+    attach_hidden(&transaction, &hidden)?;
     result.scan_revision = metadata(&transaction)?.scan_revision;
     let search = format!(
         "%{}%",
@@ -252,7 +271,7 @@ pub(in crate::threads) fn page(
             .replace('%', "\\%")
             .replace('_', "\\_")
     );
-    let filter = "(?1 IS NULL OR source_id=?1) AND (?2='all' OR (?2='active' AND json_extract(body,'$.archived')=0) OR (?2='archived' AND json_extract(body,'$.archived')=1)) AND (?3='all' OR (?3='protected' AND json_extract(body,'$.snapshot')='protected') OR (?3='recoverable' AND recoverability='recoverable') OR (?3='attention' AND (integrity!='valid' OR json_extract(body,'$.snapshot')!='protected' OR json_extract(body,'$.stateIndex')='missing'))) AND (?4='%%' OR COALESCE(title,'') LIKE ?4 ESCAPE '\\' OR COALESCE(cwd,'') LIKE ?4 ESCAPE '\\' OR thread_id LIKE ?4 ESCAPE '\\')";
+    let filter = "NOT EXISTS(SELECT 1 FROM hidden_threads h WHERE h.source_id=threads.source_id AND h.thread_id=threads.thread_id) AND (?1 IS NULL OR source_id=?1) AND (?2='all' OR (?2='active' AND json_extract(body,'$.archived')=0) OR (?2='archived' AND json_extract(body,'$.archived')=1)) AND (?3='all' OR (?3='protected' AND json_extract(body,'$.snapshot')='protected') OR (?3='recoverable' AND recoverability='recoverable') OR (?3='attention' AND (integrity!='valid' OR json_extract(body,'$.snapshot')!='protected' OR json_extract(body,'$.stateIndex')='missing'))) AND (?4='%%' OR COALESCE(title,'') LIKE ?4 ESCAPE '\\' OR COALESCE(cwd,'') LIKE ?4 ESCAPE '\\' OR thread_id LIKE ?4 ESCAPE '\\')";
     let count: i64 = transaction
         .query_row(
             &format!("SELECT COUNT(*) FROM threads WHERE {filter}"),
@@ -285,6 +304,13 @@ pub(in crate::threads) fn page(
     }
     transaction.commit().map_err(|_| "无法完成线程分页读取。")?;
     Ok(result)
+}
+
+fn attach_hidden(connection: &Connection, hidden: &std::collections::HashSet<(String, String)>) -> Result<(), String> {
+    connection.execute_batch("CREATE TEMP TABLE hidden_threads(source_id TEXT NOT NULL, thread_id TEXT NOT NULL, PRIMARY KEY(source_id,thread_id));").map_err(|_| "无法过滤线程回收站。")?;
+    let mut insert = connection.prepare("INSERT INTO hidden_threads VALUES(?1,?2)").map_err(|_| "无法准备回收站过滤。")?;
+    for (source, id) in hidden { insert.execute(params![source,id]).map_err(|_| "无法加载回收站删除状态。")?; }
+    Ok(())
 }
 
 fn unsigned(value: i64) -> Result<u64, String> {
@@ -350,8 +376,12 @@ fn write_connection(connection: &mut Connection, index: &ThreadIndex) -> Result<
 }
 
 pub(in crate::threads) fn write(paths: &AppPaths, index: &ThreadIndex) -> Result<(), String> {
+    let mut filtered = index.clone();
+    filter_deleted(paths, &mut filtered)?;
+    let index = &filtered;
+    paths::ensure_directory(&directory(paths))?;
     let _lock = lock(paths)?;
-    let mut connection = open_at(&directory(paths).join("inventory.sqlite3"), true)?;
+    let mut connection = open_at(&index_directory(paths).join("inventory.sqlite3"), true)?;
     let mut catalog = index.clone();
     catalog.threads.clear();
     let raw = Zeroizing::new(serde_json::to_vec(&catalog).map_err(|_| "无法保存线程来源副本。")?);
@@ -363,6 +393,7 @@ pub(in crate::threads) fn write(paths: &AppPaths, index: &ThreadIndex) -> Result
 }
 
 fn from_manifests(paths: &AppPaths) -> Result<ThreadIndex, String> {
+    let tombstones = super::delete::tombstones(paths)?;
     let mut index = ThreadIndex::default();
     let mut warnings = 0u64;
     let catalog = directory(paths).join("catalog.bin");
@@ -431,6 +462,7 @@ fn from_manifests(paths: &AppPaths) -> Result<ThreadIndex, String> {
                     continue;
                 }
             };
+            if tombstones.contains(&(manifest.thread.source_id.clone(), manifest.thread.thread_id.clone())) { continue; }
             if vault::manifest_path(paths, &manifest)? != entry.path() {
                 warnings += 1;
                 continue;
@@ -471,6 +503,7 @@ fn from_manifests(paths: &AppPaths) -> Result<ThreadIndex, String> {
                 id: manifest.thread.source_id.clone(),
                 kind: "recovered".into(),
                 root: manifest.source_root.clone(),
+                sqlite_home: None,
                 display_root: manifest.source_root,
                 available: false,
                 writable: false,
@@ -526,10 +559,10 @@ fn from_manifests(paths: &AppPaths) -> Result<ThreadIndex, String> {
 }
 
 pub(in crate::threads) fn recover(paths: &AppPaths) -> Result<(), String> {
-    let root = directory(paths);
-    if !root.exists() {
-        return Ok(());
-    }
+    super::delete::audit(paths)?;
+    let root = index_directory(paths);
+    if !root.exists() && !directory(paths).exists() { return Ok(()); }
+    paths::ensure_directory(&root)?;
     paths::guard_path(&root, false)?;
     let database = root.join("inventory.sqlite3");
     if database.exists() {
@@ -542,6 +575,8 @@ pub(in crate::threads) fn recover(paths: &AppPaths) -> Result<(), String> {
         }
         drop(connection);
         merge_uncommitted_manifests(paths)?;
+        let index = read(paths)?;
+        write(paths, &index)?;
         return audit_warning(paths);
     }
     let _lock = lock(paths)?;
@@ -567,6 +602,7 @@ fn audit_warning(paths: &AppPaths) -> Result<(), String> {
 }
 
 fn merge_uncommitted_manifests(paths: &AppPaths) -> Result<(), String> {
+    let tombstones = super::delete::tombstones(paths)?;
     let manifest_root = directory(paths).join("manifests");
     if !manifest_root.exists() {
         return Ok(());
@@ -626,6 +662,7 @@ fn merge_uncommitted_manifests(paths: &AppPaths) -> Result<(), String> {
                     continue;
                 }
             };
+            if tombstones.contains(&(manifest.thread.source_id.clone(), manifest.thread.thread_id.clone())) { continue; }
             if vault::manifest_path(paths, &manifest)? != entry.path() {
                 warnings += 1;
                 continue;
@@ -682,6 +719,7 @@ fn merge_uncommitted_manifests(paths: &AppPaths) -> Result<(), String> {
                 id: manifest.thread.source_id.clone(),
                 kind: "recovered".into(),
                 root: manifest.source_root.clone(),
+                sqlite_home: None,
                 display_root: manifest.source_root,
                 available: false,
                 writable: false,
@@ -737,7 +775,7 @@ fn merge_uncommitted_manifests(paths: &AppPaths) -> Result<(), String> {
 
 pub(in crate::threads) fn rebuild(paths: &AppPaths) -> Result<ThreadIndex, String> {
     let _lock = lock(paths)?;
-    let root = directory(paths);
+    let root = index_directory(paths);
     let index = from_manifests(paths)?;
     let token = uuid::Uuid::new_v4().to_string();
     let staging = root.join(format!("inventory-rebuild-{token}.sqlite3"));

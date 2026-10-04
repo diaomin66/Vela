@@ -8,6 +8,7 @@ pub mod gateway;
 pub mod evaluation;
 pub mod artifact_preview;
 pub mod threads;
+pub mod locations;
 mod reasoning;
 mod security;
 

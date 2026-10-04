@@ -1,4 +1,4 @@
-import { Archive, ArrowUpRight, Check, Copy, FileText, Folder, HardDrive, LoaderCircle, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Archive, ArrowUpRight, Check, Copy, FileText, Folder, HardDrive, LoaderCircle, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useThreadDetail } from '../../hooks/useThreads';
@@ -8,7 +8,7 @@ import { errorMessage } from '../../lib/utils';
 import { threadsApi } from '../../lib/threads/api';
 import { ThreadDialog } from './ThreadDialog';
 
-export function ThreadDetail({ thread, source, onClose, onRestore }: { thread: ThreadSummary; source?: ThreadSource; onClose: () => void; onRestore: (thread: ThreadSummary) => void }) {
+export function ThreadDetail({ thread, source, onClose, onRestore, onDelete }: { thread: ThreadSummary; source?: ThreadSource; onClose: () => void; onRestore: (thread: ThreadSummary) => void; onDelete: (thread: ThreadSummary) => void }) {
   const query = useThreadDetail(thread.key);
   const value = query.data?.summary ?? thread;
   const status = threadStatus(value);
@@ -43,6 +43,6 @@ export function ThreadDetail({ thread, source, onClose, onRestore }: { thread: T
       </dl>
       <details className="thread-technical"><summary>文件与标识</summary><dl className="thread-metadata"><div><dt>线程 ID</dt><dd className="thread-copy-value"><code>{value.threadId}</code><button className="icon-button" aria-label={copied ? '已复制线程 ID' : '复制线程 ID'} onClick={() => void copyId()}>{copied ? <Check size={15}/> : <Copy size={15}/>}</button></dd></div>{value.historyBase && <div><dt>历史基础 ID</dt><dd><code>{value.historyBase.threadId}</code><p className="thread-note">对应基础记录文件的标识，可与备份中的文件名核对。</p></dd></div>}<div><dt>记录文件</dt><dd><code>{value.path}</code></dd></div><div><dt>名称索引</dt><dd>{value.indexPresent ? '已记录名称' : '未记录名称，不代表线程丢失'}</dd></div></dl>{copyError && <p className="thread-note" role="status">无法访问剪贴板，可选中上方 ID 手动复制。</p>}</details>
     </div>
-    <footer className="thread-dialog-footer"><button className="button button-quiet" onClick={onClose}>关闭</button>{query.data?.rawAvailable && ['valid', 'healthy'].includes(value.integrity) && !dependency && <button className="button button-primary" disabled={opening.isPending} onClick={() => opening.mutate()}>{opening.isPending ? <LoaderCircle className="spin" size={15}/> : <ArrowUpRight size={16}/>}在 Codex 打开</button>}{canRestoreThread(value) && <button className="button button-primary" onClick={() => onRestore(value)}><RotateCcw size={15}/>预览恢复</button>}</footer>
+    <footer className="thread-dialog-footer"><button className="text-button danger-text thread-delete-trigger" disabled={query.isPending || opening.isPending} onClick={() => onDelete(value)}><Trash2 size={15}/>删除线程</button><button className="button button-quiet" onClick={onClose}>关闭</button>{query.data?.rawAvailable && ['valid', 'healthy'].includes(value.integrity) && !dependency && <button className="button button-primary" disabled={opening.isPending} onClick={() => opening.mutate()}>{opening.isPending ? <LoaderCircle className="spin" size={15}/> : <ArrowUpRight size={16}/>}在 Codex 打开</button>}{canRestoreThread(value) && <button className="button button-primary" onClick={() => onRestore(value)}><RotateCcw size={15}/>预览恢复</button>}</footer>
   </ThreadDialog>;
 }

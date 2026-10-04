@@ -10,6 +10,7 @@ mod state;
 mod updater;
 mod evaluation;
 mod threads;
+mod locations;
 
 use crate::core::AppPaths;
 pub use credentials::run_credential_mode;
@@ -36,11 +37,14 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(updater::UpdateState::new(paths.clone()))
+        .plugin(tauri_plugin_dialog::init())
         .manage(artifact_previews)
-        .manage(AppState::new(paths))
-        .setup(|app| {
-            let paths = app.state::<AppState>().paths.clone();
+        .setup(move |app| {
+            // Activate pending storage changes only after single-instance
+            // arbitration, before any background writer acquires these paths.
+            let paths = locations::activate_pending(paths.clone());
+            app.manage(updater::UpdateState::new(paths.clone()));
+            app.manage(AppState::new(paths.clone()));
             app.manage(crate::evaluation::EvaluationState::new(paths.clone()));
             app.manage(crate::threads::ThreadState::new(paths));
             desktop::setup(app)?;
@@ -98,6 +102,14 @@ pub fn run() {
             threads::list_threads,
             threads::rebuild_thread_inventory,
             threads::open_thread,
+            locations::get_location_preferences,
+            locations::preview_location_preferences,
+            locations::save_location_preferences,
+            threads::preview_thread_deletion,
+            threads::delete_threads,
+            threads::list_thread_trash,
+            threads::preview_thread_trash_restore,
+            threads::restore_thread_trash,
             crate::artifact_preview::create_artifact_preview,
             crate::artifact_preview::release_artifact_preview
         ])

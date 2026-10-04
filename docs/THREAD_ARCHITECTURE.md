@@ -20,7 +20,10 @@ threads/storage/vault.rs   加密分块、清单、完整性和无覆盖发布
 threads/storage/inventory.rs  自有 SQLite 目录、分页、重建和启动补偿
 threads/storage/restore.rs    预览令牌、恢复日志、发布与重启审计
 threads/storage/dependencies.rs 历史基础闭包、序号/字节边界与预览内容复验
-threads/client.rs         本机官方线程协议；不提供 turn/delete/auth RPC
+threads/storage/delete/plan.rs  逻辑线程范围、保护证明、历史及派生关系预检
+threads/storage/delete/journal.rs 加密回收站事务、删除标记、重启审计
+threads/storage/delete/actions.rs 官方删除与撤销协调、逐项结果
+threads/client.rs         本机官方线程协议；不提供模型 turn/auth RPC
 threads/reconcile.rs      显式索引刷新前的一致性备份与协议调用
 ```
 
@@ -55,6 +58,20 @@ threads/reconcile.rs      显式索引刷新前的一致性备份与协议调用
 
 发布并验证成功是恢复完成的边界。之后事务状态写入失败仍保留此前的 prepared/published 证据，由下次启动核验；目录刷新失败则作为警告返回，避免用户重复恢复已经完整写回的文件。
 
+## 删除事务与回收站
+
+预览强制纳入归档记录，并对来源与逻辑线程 ID 去重后展开所有 rollout。每个允许删除的文件必须与精确、完整、已验证的加密副本逐字节一致。Windows 读句柄拒绝已有和新开的写入句柄，同时允许官方服务删除文件；句柄保持至删除 RPC 结束。删除前再次核对原始文件集合、官方 `thread_spawn_edges` 子节点以及以 immutable rollout ID 标识的外部 `history_base` 引用。含派生子树、写入、未知关系结构或尚无可靠投影恢复路径的分页历史会被阻止。
+
+删除与索引刷新固定所选来源的实际数据库路径。来源保存自身的 `sqliteHome` 映射，切换当前数据目录后不会把旧来源改指向另一个数据库。启动官方服务后核对 `initialize.codexHome` 及 `config/read` 的有效 `sqlite_home`；不支持 scope 核验时拒绝删除。
+
+在调用官方 `thread/delete` 前，通过只读 SQLite online backup 保存 state、历史投影及名称索引，然后原子发布 `trash.bin` 的 prepared 事务。该事务本身就是删除标记，以来源与逻辑线程 ID 隐藏全部历史版本。RPC 超时、部分失败或最终状态写入失败时保留 prepared/interrupted 记录，不能根据错误返回断定原文件未修改。混合批次返回每个逻辑线程的删除、阻止或中断结果；没有执行的剩余项也明确返回。
+
+扫描、恢复副本重建和运行中的查询都服从独立删除标记。列表与统计在临时 SQLite 表中过滤标记，不读取全部消息；旧清单提交失败也不能通过详情查询绕过回收站。回收站无法解密或损坏时停止相关查询和扫描。重启把未完成 prepared/restoring 转为可检查的 interrupted，不自动删除更多文件或撤销用户操作。
+
+撤销令牌绑定每个精确快照、实际目标状态和原有恢复依赖令牌。所有冲突预检完成后才逐文件恢复；部分完成保留回收站和已有原文件，可重新预览。只有所有文件通过验证并成功保存 restored 事务后才解除删除标记。官方列表刷新失败作为文件已恢复后的警告返回。恢复范围是原始会话字节；独立附件、目标等官方元数据只保留一致性备份，不通过覆盖整个官方数据库还原。
+
+官方删除接口未提供 expected-state 参数。文件句柄与官方 writer lease 降低并发写入风险，但不能声称对其它进程在预检后新建 rollout 或派生关系提供跨进程原子比较。AhaX 不绕过官方的活动写入与引用检查。
+
 ## 生命周期
 
 - 状态在桌面单实例仲裁之后注册，避免第二次启动干扰运行中的任务。
@@ -68,7 +85,7 @@ threads/reconcile.rs      显式索引刷新前的一致性备份与协议调用
 
 重新索引前，通过只读连接和 SQLite online backup 保存包含 WAL 已提交数据的一致性快照，验证后加密。不会仅复制 `.sqlite` 主文件，也不会执行自制 SQL 写入官方表。
 
-协议客户端只握手并分页调用 `thread/list`；分别检查归档与非归档，移除 provider 过滤，覆盖已知来源类型。旧公开 schema 不识别新的来源枚举时只对该字段做受控兼容重试。全局截止时间、单次响应上限、分页边界、重复游标和退出清理都独立处理。不调用模型 turn，不重试付费请求。
+协议客户端握手、核对有效目录，索引刷新分页调用 `thread/list`，显式删除调用 `thread/delete`；分别检查归档与非归档，移除 provider 过滤，覆盖已知来源类型。旧公开 schema 不识别新的来源枚举时只对该字段做受控兼容重试。全局截止时间、单次响应上限、分页边界、重复游标和退出清理都独立处理。不调用模型 turn，不重试付费请求。
 
 原生打开通过官方 `codex://threads/<thread-id>` 链接，参数只来自经过 UUID 验证的本机记录。来源必须与当前数据目录一致。链接导航与快照恢复分开，历史版本仍由官方当前索引选择。
 
@@ -76,4 +93,4 @@ threads/reconcile.rs      显式索引刷新前的一致性备份与协议调用
 
 自动化全部使用临时目录及合成记录。包含长路径、来源离线、首次空目录、半行写入、压缩文件、历史 rollout、数据库 schema 不匹配、缺失或损坏目录、快照损坏、旧副本回退、原子发布前后中断、预览后目标变化、分块去重与大量记录分页。
 
-官方互操作用例需显式指定 `AHAX_TEST_APP_SERVER`，在隔离 `CODEX_HOME` 中执行：保护 → 删除合成源 → 恢复 → 官方列表识别 → `thread/read` 确认历史内容相同。不会打开真实用户线程或读取真实凭据。桌面烟雾测试入口为 `scripts/threads-native-smoke.mjs`。
+官方互操作用例需显式指定 `AHAX_TEST_APP_SERVER`，在隔离 `CODEX_HOME` 中执行：保护 → 官方删除同逻辑线程的全部合成 rollout → 验证源文件与官方列表均移除 → 清单重建不复活 → 回收站撤销 → 官方列表与 `thread/read` 确认历史内容相同。不会打开真实用户线程或读取真实凭据。桌面烟雾测试入口为 `scripts/threads-native-smoke.mjs`。

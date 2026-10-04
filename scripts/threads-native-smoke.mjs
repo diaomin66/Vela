@@ -143,6 +143,93 @@ try {
   assert.equal(await readFile(path.join(home, 'config.toml'), 'utf8'), config);
   for (const item of [active, archived, partial]) assert.equal(digest(await readFile(item.file)), item.hash);
   check('Missing AhaX inventory rebuilds from encrypted snapshots without changing configuration or source history');
+
+  const blockedDeletion = await invoke('preview_thread_deletion', { keys: [pending.key] });
+  assert.equal(blockedDeletion.items.length, 1);
+  assert.equal(blockedDeletion.items[0].canDelete, false);
+  await assert.rejects(invoke('delete_threads', { keys: [pending.key], expectedHash: 'stale-preview' }));
+  assert.equal(digest(await readFile(partial.file)), partial.hash);
+  check('Deletion refuses an incomplete thread and rejects stale approval without changing its source');
+
+  const locations = await invoke('get_location_preferences');
+  assert.equal(path.resolve(locations.anchorDirectory), data);
+  assert.equal(path.resolve(locations.active.codexHome), home);
+  const moved = path.join(sandbox, 'custom locations');
+  const preferences = {
+    ...locations.preferences,
+    backupsDirectory: path.join(moved, 'configuration backups'),
+    evaluationsDirectory: path.join(moved, 'evaluations'),
+    exportsDirectory: path.join(moved, 'exports'),
+    threadProtectionDirectory: path.join(moved, 'thread protection'),
+    threadIndexDirectory: path.join(moved, 'thread index'),
+  };
+  await mkdir(path.join(data, 'backups'), { recursive: true });
+  await writeFile(path.join(data, 'backups', 'migration-fixture.bin'), 'Synthetic backup bytes');
+  await mkdir(path.join(data, 'evaluations', 'exports'), { recursive: true });
+  await writeFile(path.join(data, 'evaluations', 'migration-fixture.txt'), 'Synthetic evaluation bytes');
+  await writeFile(path.join(data, 'evaluations', 'exports', 'migration-fixture.txt'), 'Synthetic export bytes');
+  let rejectedRelative = false;
+  try {
+    const invalid = await invoke('preview_location_preferences', { preferences: { ...preferences, backupsDirectory: 'relative-folder' } });
+    rejectedRelative = invalid.canSave === false;
+  } catch { rejectedRelative = true; }
+  assert(rejectedRelative, 'Relative storage folders must be rejected');
+  const locationPreview = await invoke('preview_location_preferences', { preferences });
+  assert.equal(locationPreview.canSave, true, JSON.stringify(locationPreview));
+  assert.equal(locationPreview.changes.length, 5);
+  await assert.rejects(invoke('save_location_preferences', { preferences, expectedHash: 'stale-preview' }));
+  const scheduledLocations = await invoke('save_location_preferences', { preferences, expectedHash: locationPreview.expectedHash });
+  assert.equal(scheduledLocations.requiresRestart, true);
+  assert.equal(path.resolve(scheduledLocations.active.threadProtectionDirectory), path.join(data, 'threads'));
+  assert.equal((await list()).total, 3);
+  await stop(); await start();
+  const appliedLocations = await invoke('get_location_preferences');
+  assert.equal(appliedLocations.requiresRestart, false, JSON.stringify(appliedLocations));
+  assert.equal(appliedLocations.error, null);
+  for (const key of Object.keys(preferences).filter((key) => key.endsWith('Directory'))) {
+    assert.equal(path.resolve(appliedLocations.active[key]), preferences[key], key);
+  }
+  assert.equal(path.resolve(appliedLocations.anchorDirectory), data);
+  assert.equal((await list()).total, 3);
+  assert.equal((await invoke('get_thread_settings')).intervalSeconds, 125);
+  assert.equal(await readFile(path.join(preferences.backupsDirectory, 'migration-fixture.bin'), 'utf8'), 'Synthetic backup bytes');
+  assert.equal(await readFile(path.join(preferences.evaluationsDirectory, 'migration-fixture.txt'), 'utf8'), 'Synthetic evaluation bytes');
+  assert.equal(await readFile(path.join(preferences.exportsDirectory, 'migration-fixture.txt'), 'utf8'), 'Synthetic export bytes');
+  assert.equal(await readFile(path.join(data, 'backups', 'migration-fixture.bin'), 'utf8'), 'Synthetic backup bytes');
+  assert.equal(await readFile(path.join(home, 'config.toml'), 'utf8'), config);
+  check('Five custom storage locations activate together on restart, preserve old data and retain catalog settings');
+
+  await unlink(active.file);
+  await scan();
+  const relocatedRestore = await invoke('preview_thread_restore', { key: thread.key });
+  await invoke('restore_thread', { key: thread.key, expectedHash: relocatedRestore.expectedHash });
+  assert.equal(digest(await readFile(active.file)), active.hash);
+  const conflict = path.join(sandbox, 'conflicting backup location');
+  await mkdir(conflict);
+  await writeFile(path.join(conflict, 'migration-fixture.bin'), 'Existing unrelated file');
+  const conflictingPreferences = { ...preferences, backupsDirectory: conflict };
+  let rejectedConflict = false;
+  try {
+    const conflictPreview = await invoke('preview_location_preferences', { preferences: conflictingPreferences });
+    rejectedConflict = conflictPreview.canSave === false;
+  } catch { rejectedConflict = true; }
+  assert(rejectedConflict, 'Conflicting destination contents must prevent a location switch');
+  assert.equal(await readFile(path.join(conflict, 'migration-fixture.bin'), 'utf8'), 'Existing unrelated file');
+  assert.equal(path.resolve((await invoke('get_location_preferences')).active.backupsDirectory), preferences.backupsDirectory);
+  check('Relocated encrypted snapshots restore exactly and conflicting destination files remain intact');
+
+  await stop();
+  await writeFile(path.join(home, 'config.toml'), 'sqlite_home = 123\n');
+  await start();
+  const malformedLocations = await invoke('get_location_preferences');
+  assert(malformedLocations.error?.includes('sqlite_home'));
+  assert.equal(path.resolve(malformedLocations.active.threadIndexDirectory), preferences.threadIndexDirectory);
+  assert.equal((await list()).total, 3);
+  await stop();
+  await writeFile(path.join(home, 'config.toml'), config);
+  await start();
+  assert.equal((await invoke('get_location_preferences')).error, null);
+  check('Malformed official SQLite settings remain diagnosable without preventing desktop startup or losing the protected catalog');
   report.passed = true;
 } catch (error) {
   report.error = String(error?.stack ?? error); process.exitCode = 1;

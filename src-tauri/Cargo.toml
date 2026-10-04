@@ -1,6 +1,6 @@
 [package]
 name = "vela"
-version = "0.8.1"
+version = "0.9.0"
 description = "A thoughtful Windows companion for Codex connections and recovery"
 edition = "2021"
 default-run = "vela"
@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
 tauri-plugin-updater = { version = "2.13.1", default-features = false, features = ["rustls-tls", "system-proxy"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }

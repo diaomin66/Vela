@@ -190,7 +190,7 @@ pub(super) fn read_names(root: &Path) -> HashMap<String, String> {
     names
 }
 
-pub(super) fn filename_id(path: &Path) -> Option<String> {
+pub(in crate::threads) fn filename_id(path: &Path) -> Option<String> {
     let name = path.file_name()?.to_str()?.strip_prefix("rollout-")?;
     let name = name
         .strip_suffix(".zst")
@@ -208,7 +208,7 @@ pub(super) fn filename_id(path: &Path) -> Option<String> {
     None
 }
 
-pub(super) fn filename_rollout_id(path: &Path) -> Option<String> {
+pub(in crate::threads) fn filename_rollout_id(path: &Path) -> Option<String> {
     let name = path.file_name()?.to_str()?.strip_prefix("rollout-")?;
     let name = name
         .strip_suffix(".zst")

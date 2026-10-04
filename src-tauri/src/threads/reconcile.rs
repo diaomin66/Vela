@@ -28,6 +28,9 @@ pub(super) fn run(
     paths: &AppPaths,
     source: &ThreadSource,
 ) -> Result<ThreadReconcileResult, String> {
+    if let Some(error) = paths.location_error() {
+        return Err(error.to_owned());
+    }
     let executable = client::discover()?;
     run_with_executable(paths, source, &executable)
 }
@@ -38,27 +41,22 @@ fn run_with_executable(
     executable: &Path,
 ) -> Result<ThreadReconcileResult, String> {
     let root = Path::new(&source.root);
-    let sqlite_root = sqlite_root(paths, root);
-    backup_metadata(paths, source, sqlite_root.as_deref().unwrap_or(root))?;
-    let mut client = client::Client::start(executable, root, sqlite_root.as_deref())?;
+    let sqlite_root = sqlite_root(paths, source)?;
+    backup_metadata(paths, source, &sqlite_root)?;
+    let mut client = client::Client::start(executable, root, Some(&sqlite_root))?;
+    client.verify_mutation_scope()?;
     let active_count = client.list_all(false)?;
     let archived_count = client.list_all(true)?;
     Ok(ThreadReconcileResult { source_id: source.id.clone(), active_count, archived_count, completed_at: Utc::now().to_rfc3339(),
         message: format!("本机服务已核对 {active_count} 个活跃线程和 {archived_count} 个归档线程。请重新打开客户端；项目、来源或服务商筛选仍可能影响列表显示。") })
 }
 
-fn sqlite_root(paths: &AppPaths, root: &Path) -> Option<PathBuf> {
-    if paths
-        .config
-        .parent()
-        .and_then(|path| fs::canonicalize(path).ok())
-        != fs::canonicalize(root).ok()
-    {
-        return None;
-    }
-    std::env::var_os("CODEX_SQLITE_HOME")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
+pub(super) fn sqlite_root(paths: &AppPaths, source: &ThreadSource) -> Result<PathBuf, String> {
+    crate::locations::source_sqlite_home(
+        paths,
+        Path::new(&source.root),
+        source.sqlite_home.as_deref(),
+    )
 }
 
 fn safe_file(path: &Path) -> Result<(), String> {
@@ -79,13 +77,16 @@ fn safe_file(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn backup_metadata(paths: &AppPaths, source: &ThreadSource, db_root: &Path) -> Result<(), String> {
+pub(super) fn backup_metadata(
+    paths: &AppPaths,
+    source: &ThreadSource,
+    db_root: &Path,
+) -> Result<(), String> {
     if !db_root.is_absolute() {
         return Err("线程数据库目录必须为绝对路径。".into());
     }
     let checkpoint = paths
-        .data
-        .join("threads")
+        .thread_protection_directory()
         .join("metadata")
         .join(uuid::Uuid::new_v4().to_string());
     let mut artifacts = Vec::new();
@@ -215,11 +216,13 @@ mod tests {
             data: directory.path().join("data"),
             config: root.join("config.toml"),
             helper: directory.path().join("unused.exe"),
+            locations: None,
         };
         let source = ThreadSource {
             id: "test-source".into(),
             kind: "local".into(),
             root: root.to_string_lossy().into_owned(),
+            sqlite_home: None,
             display_root: "test".into(),
             available: true,
             writable: true,

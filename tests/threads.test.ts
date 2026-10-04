@@ -101,3 +101,84 @@ describe('thread inventory', () => {
     expect((await other.list(query)).total).toBe(0);
   });
 });
+
+describe('thread recycle bin', () => {
+  it('deletes the entire logical thread after preview and scans do not resurrect it', async () => {
+    const api = createPreviewThreads(() => 1791028800000, false, 'delete');
+    const first = (await api.list(query)).threads[0];
+    const preview = await api.previewDeletion([first.key]);
+    expect(preview.logicalCount).toBe(1);
+    expect(preview.rolloutCount).toBe(2);
+    const result = await api.deleteThreads([first.key], preview.expectedHash);
+    expect(result.deletedCount).toBe(1);
+    expect((await api.trash()).items[0].rolloutCount).toBe(2);
+    await api.scan(); await api.rebuild();
+    expect((await api.list({ ...query, search: first.threadId })).threads).toEqual([]);
+    const item = (await api.trash()).items[0];
+    const restore = await api.previewTrashRestore(item.id);
+    const failed = await api.restoreTrash(item.id, restore.expectedHash);
+    expect(failed.items.map((item) => item.status)).toEqual(['restored', 'failed']);
+    expect((await api.trash()).total).toBe(1);
+    const fresh = await api.previewTrashRestore(item.id);
+    expect((await api.restoreTrash(item.id, fresh.expectedHash)).items[0].status).toBe('restored');
+    expect((await api.list({ ...query, search: first.threadId })).threads).toHaveLength(2);
+    expect((await api.trash()).total).toBe(0);
+  });
+
+  it('retains blocked and failed records in a partial bulk deletion', async () => {
+    const api = createPreviewThreads(() => 1791028800000, false, 'delete');
+    const rows = (await api.list(query)).threads;
+    const selected = rows.filter((thread) => ['000000000001', '000000000002', '000000000005'].some((suffix) => thread.threadId.endsWith(suffix)));
+    const keys = selected.map((thread) => thread.key);
+    const preview = await api.previewDeletion(keys);
+    expect(preview.logicalCount).toBe(3);
+    expect(preview.rolloutCount).toBe(4);
+    expect(preview.items.filter((item) => !item.canDelete)).toHaveLength(1);
+    const result = await api.deleteThreads(keys, preview.expectedHash);
+    expect(result.items.map((item) => item.status).sort()).toEqual(['blocked', 'deleted', 'failed']);
+    expect((await api.list({ ...query, search: '000000000002' })).total).toBe(1);
+    expect((await api.list({ ...query, search: '000000000005' })).total).toBe(1);
+    const failed = selected.find((thread) => thread.threadId.endsWith('000000000002'))!;
+    const retry = await api.previewDeletion([failed.key]);
+    expect((await api.deleteThreads([failed.key], retry.expectedHash)).deletedCount).toBe(1);
+  });
+
+  it('rejects unpreviewed or stale deletion and recycle restore tokens without changing records', async () => {
+    const api = createPreviewThreads();
+    const rows = (await api.list(query)).threads;
+    const one = await api.previewDeletion([rows[0].key]);
+    const two = await api.previewDeletion([rows[1].key]);
+    await expect(api.deleteThreads([rows[1].key], one.expectedHash)).rejects.toThrow('重新预览');
+    await api.deleteThreads([rows[0].key], one.expectedHash);
+    await expect(api.deleteThreads([rows[1].key], two.expectedHash)).rejects.toThrow('重新预览');
+    const item = (await api.trash()).items[0];
+    const undo = await api.previewTrashRestore(item.id);
+    const newer = await api.previewDeletion([rows[1].key]);
+    await api.deleteThreads([rows[1].key], newer.expectedHash);
+    await expect(api.restoreTrash(item.id, undo.expectedHash)).rejects.toThrow('重新预览');
+    expect((await api.trash()).total).toBe(2);
+  });
+});
+
+it('keeps interrupted deletions hidden and recoverable without losing native completion messages', async () => {
+  const api = createPreviewThreads(() => 1791028800000, false, 'interrupted');
+  const first = (await api.list(query)).threads[0];
+  const preview = await api.previewDeletion([first.key]);
+  const result = await api.deleteThreads([first.key], preview.expectedHash);
+  expect(result.items[0].status).toBe('interrupted');
+  expect(result.items[0].trashId).toBeTruthy();
+  expect(result.deletedCount).toBe(0);
+  expect(result.failedCount).toBe(1);
+  await api.scan(); await api.rebuild();
+  expect((await api.list({ ...query, search: first.threadId })).total).toBe(0);
+  const item = (await api.trash()).items[0];
+  expect(item.state).toBe('interrupted');
+  const undo = await api.previewTrashRestore(item.id);
+  expect(undo.canRestore).toBe(true);
+  const restored = await api.restoreTrash(item.id, undo.expectedHash);
+  expect(restored.items[0].status).toBe('restored');
+  expect(restored.failedCount).toBe(0);
+  expect(restored.items[0].message).toContain('官方列表尚未刷新');
+  expect((await api.trash()).total).toBe(0);
+  expect((await api.list({ ...query, search: first.threadId })).total).toBe(1);
+});

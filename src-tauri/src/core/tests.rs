@@ -30,6 +30,7 @@ fn render_paths(helper: &Path) -> AppPaths {
         data: directory.join("data"),
         config: directory.join("config.toml"),
         helper: helper.to_path_buf(),
+        locations: None,
     }
 }
 #[test]
@@ -39,6 +40,7 @@ fn v1_model_migrates_only_when_models_field_is_absent() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper"),
+        locations: None,
     };
     let mut legacy = serde_json::to_value(profile()).unwrap();
     legacy.as_object_mut().unwrap().remove("models");
@@ -62,6 +64,7 @@ fn discovery_preserves_manual_selection_and_never_enables_new_models() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper"),
+        locations: None,
     };
     let mut saved = profile();
     saved.models = vec![ChannelModel {
@@ -107,6 +110,7 @@ fn failed_balance_refresh_preserves_last_value_and_disabled_clears_it() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper"),
+        locations: None,
     };
     let mut saved = profile();
     saved.balance = Some(BalanceSnapshot {
@@ -164,6 +168,7 @@ fn missing_balance_measurement_is_never_invented_after_an_error() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper"),
+        locations: None,
     };
     let saved = profile();
     save_store(
@@ -306,6 +311,7 @@ fn backup_is_encrypted_and_restores_exact_bytes() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     let original = b"# Preserve exactly\nmodel = \"original\"\n";
     atomic_write(&paths.config, original).unwrap();
@@ -333,6 +339,7 @@ fn direct_configuration_removes_only_owned_root_and_active_profile_catalogs() {
         data: directory.path().join("data"),
         config: directory.path().join("config"),
         helper: directory.path().join("helper.exe"),
+        locations: None,
     };
     let owned = crate::catalog::model_file(&paths, &Store::default());
     let custom = directory.path().join("thirdparty-models.json");
@@ -402,6 +409,7 @@ fn routing_repair_preview_preserves_the_current_known_route_without_reading_keys
         data: directory.path().join("data"),
         config: directory.path().join("config.toml"),
         helper: directory.path().join("nonexistent-helper"),
+        locations: None,
     };
     let mut saved = profile();
     saved.key_stored = false;
@@ -448,6 +456,7 @@ fn restore_refuses_stale_preview_and_preserves_external_edits() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     atomic_write(&paths.config, b"model = \"original\"\n").unwrap();
     let backup = commit_config(
@@ -478,6 +487,7 @@ fn restores_the_absence_of_a_configuration_file() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     let backup = commit_config(&paths, None, Some(b"model = \"next\"\n"), "test", "test").unwrap();
     assert!(!backup.config_existed);
@@ -492,6 +502,7 @@ fn an_external_lock_prevents_mutations() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     let _lock = paths.lock().unwrap();
     assert!(paths.lock().is_err());
@@ -503,6 +514,7 @@ fn validation_of_an_old_revision_cannot_mark_an_edited_connection_as_valid() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     let original = profile();
     let mut edited = original.clone();
@@ -538,6 +550,7 @@ fn changing_an_existing_endpoint_is_rejected_before_any_credential_write() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     let original = profile();
     save_store(
@@ -575,6 +588,7 @@ fn repair_skips_backups_whose_managed_connection_was_deleted() {
         data: dir.path().join("data"),
         config: dir.path().join("config.toml"),
         helper: dir.path().join("helper.exe"),
+        locations: None,
     };
     atomic_write(&paths.config, b"model = \"original\"\n").unwrap();
     let managed = render_profile("", &profile(), &paths).unwrap();

@@ -43,7 +43,7 @@ impl Default for EvaluationStore {
 }
 
 pub(super) fn directory(paths: &AppPaths) -> PathBuf {
-    paths.data.join("evaluations")
+    paths.evaluations_directory()
 }
 fn read_bounded(path: &std::path::Path, limit: u64) -> Result<Vec<u8>, String> {
     let metadata = fs::metadata(path).map_err(|_| "无法读取评测记录。")?;
@@ -174,7 +174,7 @@ pub(super) fn export(paths: &AppPaths, id: &str) -> Result<EvaluationExport, Str
     let run = read_run(paths, id)?;
     let content = serde_json::to_string_pretty(&run).map_err(|_| "无法导出评测记录。")?;
     let file_name = format!("AhaX-evaluation-{id}.json");
-    let target = directory(paths).join("exports").join(&file_name);
+    let target = paths.exports_directory().join(&file_name);
     core::atomic_write(&target, content.as_bytes())?;
     Ok(EvaluationExport {
         file_name,

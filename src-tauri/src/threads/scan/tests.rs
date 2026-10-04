@@ -13,6 +13,7 @@ fn fixture() -> (tempfile::TempDir, AppPaths, PathBuf) {
         data: directory.path().join("data"),
         config: root.join("config.toml"),
         helper: directory.path().join("helper.exe"),
+        locations: None,
     };
     (directory, paths, root)
 }
@@ -50,6 +51,116 @@ fn ordinal_document(id: &str) -> Vec<u8> {
         })
         .collect::<String>()
         .into_bytes()
+}
+
+#[test]
+fn changing_current_home_retains_each_historical_sources_custom_database() {
+    let (directory, paths, root) = fixture();
+    let sqlite_home = directory.path().join("old-custom-database");
+    fs::create_dir_all(&sqlite_home).unwrap();
+    let source = rollout(&root, FIRST_ID, false, "");
+    let contents = document(FIRST_ID);
+    fs::write(&source, &contents).unwrap();
+    let database = rusqlite::Connection::open(sqlite_home.join("state_5.sqlite")).unwrap();
+    database
+        .execute_batch("CREATE TABLE threads(id TEXT, rollout_path TEXT, title TEXT);")
+        .unwrap();
+    database
+        .execute(
+            "INSERT INTO threads VALUES(?1,?2,'Retained index title')",
+            [FIRST_ID, &source.to_string_lossy()],
+        )
+        .unwrap();
+    drop(database);
+    // This override deliberately does not exist in the source's config.toml.
+    let original = crate::locations::ResolvedLocations::defaults(&paths.data, &root, &sqlite_home);
+    let original_paths = paths.with_locations(original);
+    let before = run(&original_paths).unwrap();
+    assert_eq!(before.threads[0].state_index.as_deref(), Some("indexed"));
+    assert_eq!(
+        PathBuf::from(before.sources[0].sqlite_home.as_ref().unwrap()),
+        sqlite_home
+    );
+    storage::write(&original_paths, &before).unwrap();
+    let new_home = directory.path().join("new-home");
+    fs::create_dir_all(&new_home).unwrap();
+    let next =
+        crate::locations::ResolvedLocations::defaults(&original_paths.data, &new_home, &new_home);
+    let next_paths = original_paths.with_locations(next);
+    let after = run(&next_paths).unwrap();
+    let retained = after
+        .sources
+        .iter()
+        .find(|candidate| candidate.id == before.sources[0].id)
+        .unwrap();
+    assert_eq!(
+        PathBuf::from(retained.sqlite_home.as_ref().unwrap()),
+        sqlite_home
+    );
+    assert_eq!(
+        super::super::reconcile::sqlite_root(&next_paths, retained).unwrap(),
+        sqlite_home
+    );
+    assert_eq!(after.threads[0].state_index.as_deref(), Some("indexed"));
+    assert_eq!(
+        after.threads[0].title.as_deref(),
+        Some("Retained index title")
+    );
+    storage::write(&next_paths, &after).unwrap();
+    let rebuilt = storage::rebuild(&next_paths).unwrap();
+    let retained = rebuilt
+        .sources
+        .iter()
+        .find(|candidate| candidate.id == before.sources[0].id)
+        .unwrap();
+    assert_eq!(
+        PathBuf::from(retained.sqlite_home.as_ref().unwrap()),
+        sqlite_home
+    );
+    assert_eq!(fs::read(&source).unwrap(), contents);
+    assert!(!root.join("state_5.sqlite").exists());
+}
+
+#[test]
+fn historical_sources_resolve_their_own_config_and_fail_closed_when_invalid() {
+    let (directory, paths, _) = fixture();
+    let old_home = directory.path().join("imported-home");
+    let source = rollout(&old_home, FIRST_ID, false, "");
+    fs::write(&source, document(FIRST_ID)).unwrap();
+    fs::write(
+        old_home.join("config.toml"),
+        "sqlite_home = 'separate-state'\n",
+    )
+    .unwrap();
+    let sqlite_home = old_home.join("separate-state");
+    fs::create_dir_all(&sqlite_home).unwrap();
+    let database = rusqlite::Connection::open(sqlite_home.join("state_5.sqlite")).unwrap();
+    database
+        .execute_batch("CREATE TABLE threads(id TEXT, rollout_path TEXT, title TEXT);")
+        .unwrap();
+    database
+        .execute(
+            "INSERT INTO threads VALUES(?1,?2,'Historical index')",
+            [FIRST_ID, &source.to_string_lossy()],
+        )
+        .unwrap();
+    drop(database);
+    let index = run_with_sources(&paths, ThreadIndex::default(), vec![old_home.clone()]).unwrap();
+    assert_eq!(index.threads[0].state_index.as_deref(), Some("indexed"));
+    assert_eq!(
+        PathBuf::from(index.sources[0].sqlite_home.as_ref().unwrap()),
+        sqlite_home
+    );
+    fs::write(old_home.join("config.toml"), "sqlite_home = 17\n").unwrap();
+    let invalid = run_with_sources(&paths, ThreadIndex::default(), vec![old_home.clone()]).unwrap();
+    assert!(invalid.sources[0].error.is_some());
+    assert!(invalid.sources[0].sqlite_home.is_none());
+    assert_eq!(
+        invalid.threads[0].state_index.as_deref(),
+        Some("unavailable")
+    );
+    assert!(super::super::reconcile::sqlite_root(&paths, &invalid.sources[0]).is_err());
+    assert!(!old_home.join("state_5.sqlite").exists());
 }
 
 fn based_document(id: &str, base: &str, parent: &[u8]) -> Vec<u8> {
@@ -558,6 +669,7 @@ fn first_time_user_with_no_home_is_an_empty_source_without_a_protection_error() 
         data: directory.path().join("data"),
         config: root.join("config.toml"),
         helper: directory.path().join("helper.exe"),
+        locations: None,
     };
     let scanned = run_with_sources(&paths, ThreadIndex::default(), vec![root.clone()]).unwrap();
     assert!(scanned.threads.is_empty());
@@ -694,7 +806,7 @@ fn unavailable_source_is_not_reported_as_deleted_and_incremental_scan_rechecks_c
     fs::write(&path, document(FIRST_ID)).unwrap();
     let first = run_with_sources(&paths, ThreadIndex::default(), vec![root.clone()]).unwrap();
     assert_eq!(first.threads[0].snapshot, SnapshotState::Protected);
-    let second = run_scan(&paths, first, vec![root.clone()], None, false).unwrap();
+    let second = run_scan(&paths, first, vec![root.clone()], false).unwrap();
     assert_eq!(second.threads[0].snapshot, SnapshotState::Protected);
     let mut changed = document(FIRST_ID);
     changed.extend_from_slice(
@@ -705,7 +817,7 @@ fn unavailable_source_is_not_reported_as_deleted_and_incremental_scan_rechecks_c
         .as_bytes(),
     );
     fs::write(&path, changed).unwrap();
-    let third = run_scan(&paths, second, vec![root.clone()], None, false).unwrap();
+    let third = run_scan(&paths, second, vec![root.clone()], false).unwrap();
     assert_eq!(third.threads[0].line_count, 4);
     let offline = directory.path().join("offline");
     fs::rename(&root, &offline).unwrap();

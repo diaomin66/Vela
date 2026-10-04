@@ -6,7 +6,11 @@ use std::{
 };
 
 pub(super) fn directory(paths: &AppPaths) -> PathBuf {
-    paths.data.join("threads")
+    paths.thread_protection_directory()
+}
+
+pub(super) fn index_directory(paths: &AppPaths) -> PathBuf {
+    paths.thread_index_directory()
 }
 
 pub(super) fn hash(bytes: &[u8]) -> String {

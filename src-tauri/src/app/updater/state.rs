@@ -186,6 +186,7 @@ mod tests {
             data: directory.join("data"),
             config: directory.join("unused-config"),
             helper: directory.join("unused-helper"),
+            locations: None,
         }
     }
 

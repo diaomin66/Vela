@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 const DEFAULT_INSTANCE_IDENTIFIER: &str = "app.vela.desktop";
@@ -14,11 +15,25 @@ pub struct AppPaths {
     pub data: PathBuf,
     pub config: PathBuf,
     pub helper: PathBuf,
+    pub locations: Option<Arc<crate::locations::ResolvedLocations>>,
 }
 
 impl AppPaths {
     pub fn discover() -> Result<Self, String> {
         let base = directories::BaseDirs::new().ok_or("无法确定当前用户目录。")?;
+        crate::locations::discover(Self::discover_base(&base)?, base.home_dir())
+    }
+
+    /// Credential identity is anchored in the application directory and must remain
+    /// available while official configuration or saved location preferences need repair.
+    pub(crate) fn discover_identity() -> Result<Self, String> {
+        let base = directories::BaseDirs::new().ok_or("无法确定当前用户目录。")?;
+        Ok(crate::locations::credential_paths(Self::discover_base(
+            &base,
+        )?))
+    }
+
+    fn discover_base(base: &directories::BaseDirs) -> Result<Self, String> {
         let codex_home = std::env::var_os("CODEX_HOME")
             .filter(|s| !s.is_empty())
             .map(PathBuf::from)
@@ -34,11 +49,75 @@ impl AppPaths {
         if !data.is_absolute() {
             return Err("VELA_DATA_DIR 必须为绝对路径。".into());
         }
+        let config = codex_home.join("config.toml");
         Ok(Self {
             data,
-            config: codex_home.join("config.toml"),
+            config,
             helper: std::env::current_exe().map_err(|_| "无法定位凭据读取程序。")?,
+            locations: None,
         })
+    }
+
+    pub(crate) fn with_locations(mut self, locations: crate::locations::ResolvedLocations) -> Self {
+        self.config = locations.codex_home.join("config.toml");
+        self.locations = Some(Arc::new(locations));
+        self
+    }
+
+    pub(crate) fn locations(&self) -> Option<&crate::locations::ResolvedLocations> {
+        self.locations.as_deref()
+    }
+
+    pub(crate) fn codex_home(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.codex_home.clone())
+            .unwrap_or_else(|| {
+                self.config
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .to_path_buf()
+            })
+    }
+
+    pub(crate) fn sqlite_home(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.sqlite_home.clone())
+            .unwrap_or_else(|| self.codex_home())
+    }
+
+    pub(crate) fn location_error(&self) -> Option<&str> {
+        self.locations()
+            .and_then(|locations| locations.error.as_deref())
+    }
+
+    pub(crate) fn backups_directory(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.backups_directory.clone())
+            .unwrap_or_else(|| self.data.join("backups"))
+    }
+
+    pub(crate) fn evaluations_directory(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.evaluations_directory.clone())
+            .unwrap_or_else(|| self.data.join("evaluations"))
+    }
+
+    pub(crate) fn exports_directory(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.exports_directory.clone())
+            .unwrap_or_else(|| self.data.join("evaluations/exports"))
+    }
+
+    pub(crate) fn thread_protection_directory(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.thread_protection_directory.clone())
+            .unwrap_or_else(|| self.data.join("threads"))
+    }
+
+    pub(crate) fn thread_index_directory(&self) -> PathBuf {
+        self.locations()
+            .map(|locations| locations.thread_index_directory.clone())
+            .unwrap_or_else(|| self.data.join("threads"))
     }
 
     /// Keep the installed application's identity for its normal data directory,
@@ -54,7 +133,7 @@ impl AppPaths {
     }
     pub(super) fn backup_file(&self, id: &str) -> Result<PathBuf, String> {
         validate_id(id)?;
-        Ok(self.data.join("backups").join(format!("{id}.bin")))
+        Ok(self.backups_directory().join(format!("{id}.bin")))
     }
     pub(crate) fn lock(&self) -> Result<File, String> {
         fs::create_dir_all(&self.data).map_err(|_| "无法创建应用数据目录。")?;

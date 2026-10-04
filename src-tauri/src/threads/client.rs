@@ -1,4 +1,4 @@
-//! Minimal local app-server transport. No turn, authentication, or deletion RPCs.
+//! Minimal local app-server transport for listing and explicit reversible deletion.
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Read, Write},
@@ -19,6 +19,8 @@ pub(super) struct Client {
     sequence: u64,
     deadline: Instant,
     last_rpc_code: Option<i64>,
+    home_verified: bool,
+    sqlite_root: PathBuf,
 }
 
 impl Client {
@@ -41,6 +43,16 @@ impl Client {
         if let Some(sqlite_root) = sqlite_root {
             command.env("CODEX_SQLITE_HOME", sqlite_root);
         }
+        // Freeze the resolved location instead of allowing source config or
+        // parent environment to redirect this operation to another database.
+        command.args([
+            "-c",
+            &format!(
+                "sqlite_home={}",
+                serde_json::to_string(&sqlite_root.unwrap_or(root).to_string_lossy())
+                    .map_err(|_| "无法固定线程索引目录。")?
+            ),
+        ]);
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -82,12 +94,15 @@ impl Client {
             sequence: 0,
             deadline: Instant::now() + Duration::from_secs(300),
             last_rpc_code: None,
+            home_verified: false,
+            sqlite_root: sqlite_root.unwrap_or(root).to_path_buf(),
         };
         let initialized = client.call("initialize", json!({"clientInfo":{"name":"ahax_threads","title":"AhaX thread protection","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":false}}))?;
         if let Some(actual) = initialized.get("codexHome").and_then(Value::as_str) {
             if path_identity(Path::new(actual))? != path_identity(root)? {
                 return Err("线程服务打开了不同的来源目录，已停止重新索引。".into());
             }
+            client.home_verified = true;
         }
         client.notify("initialized", json!({}))?;
         Ok(client)
@@ -113,13 +128,13 @@ impl Client {
         loop {
             let remaining = request_deadline
                 .checked_duration_since(Instant::now())
-                .ok_or("线程索引处理超时；原日志和保护快照已保留，可稍后重试。")?;
+                .ok_or("线程服务响应超时；请检查操作结果，保护快照仍保留。")?;
             let response = self
                 .replies
                 .as_ref()
                 .ok_or("线程服务已关闭。")?
                 .recv_timeout(remaining)
-                .map_err(|_| "线程索引处理超时或服务已退出；原日志和保护快照已保留。")??;
+                .map_err(|_| "线程服务响应超时或已退出；请检查操作结果，保护快照仍保留。")??;
             // Server requests are not needed for listing. Decline explicitly;
             // never leave a hidden approval request waiting in the child.
             if response.get("method").is_some() {
@@ -134,7 +149,7 @@ impl Client {
             if response.get("error").is_some() {
                 self.last_rpc_code = response.pointer("/error/code").and_then(Value::as_i64);
                 // Upstream messages may contain conversation content or paths.
-                return Err("本机线程服务不支持此索引请求，或当前配置无法加载。请更新官方客户端并通过诊断检查配置。".into());
+                return Err("本机线程服务不支持当前线程操作，或当前配置无法加载。请更新官方客户端并通过诊断检查配置。".into());
             }
             return response
                 .get("result")
@@ -143,7 +158,14 @@ impl Client {
         }
     }
 
-    pub(super) fn list_all(&mut self, archived: bool) -> Result<u64, String> {
+    pub(in crate::threads) fn list_all(&mut self, archived: bool) -> Result<u64, String> {
+        Ok(self.list_ids(archived)?.len() as u64)
+    }
+
+    pub(in crate::threads) fn list_ids(
+        &mut self,
+        archived: bool,
+    ) -> Result<std::collections::HashSet<String>, String> {
         let mut cursor: Option<String> = None;
         let mut seen = std::collections::HashSet::new();
         let mut count = 0;
@@ -186,7 +208,7 @@ impl Client {
                 .map(str::to_owned);
             count += 1;
             if next.is_none() {
-                return Ok(seen.len() as u64);
+                return Ok(seen);
             }
             if next == cursor || count >= 2000 {
                 return Err("线程列表未完整返回，保护快照已保留，请缩小来源后重试。".into());
@@ -194,6 +216,38 @@ impl Client {
             cursor = next;
         }
         Err("线程列表超出单次处理范围。".into())
+    }
+
+    /// Delete one logical thread through the official local service. The
+    /// service expands the spawn subtree, checks history references and owns
+    /// all rollout/state database mutations.
+    pub(in crate::threads) fn delete_thread(&mut self, thread_id: &str) -> Result<(), String> {
+        if uuid::Uuid::parse_str(thread_id).is_err() {
+            return Err("线程 ID 无效，未执行删除。".into());
+        }
+        let result = self.call("thread/delete", json!({ "threadId": thread_id }))?;
+        if result.is_object() {
+            Ok(())
+        } else {
+            Err("本机线程服务返回了不兼容的删除结果。".into())
+        }
+    }
+}
+
+impl Client {
+    pub(in crate::threads) fn verify_mutation_scope(&mut self) -> Result<(), String> {
+        if !self.home_verified {
+            return Err("本机服务未确认实际会话目录，暂不允许删除。".into());
+        }
+        let response = self.call("config/read", json!({"includeLayers":false}))?;
+        let actual = response
+            .pointer("/config/sqlite_home")
+            .and_then(Value::as_str)
+            .ok_or("本机服务未确认实际数据库目录，暂不允许删除。")?;
+        if path_identity(Path::new(actual))? != path_identity(&self.sqlite_root)? {
+            return Err("本机服务实际数据库位置与预览不一致，未开始删除。".into());
+        }
+        Ok(())
     }
 }
 
@@ -216,7 +270,16 @@ fn path_identity(path: &Path) -> Result<String, String> {
     Ok(text)
 }
 
-pub(super) fn discover() -> Result<PathBuf, String> {
+pub(in crate::threads) fn discover() -> Result<PathBuf, String> {
+    #[cfg(test)]
+    if let Some(executable) = std::env::var_os("AHAX_TEST_APP_SERVER") {
+        let executable = PathBuf::from(executable);
+        if !executable.is_absolute() || !executable.is_file() {
+            return Err("隔离测试程序路径无效。".into());
+        }
+        return Ok(executable);
+    }
+
     let mut candidates = Vec::new();
     for root in [
         std::env::var_os("LOCALAPPDATA"),
@@ -314,6 +377,7 @@ mod tests {
             data: sandbox.path().join("data"),
             config: root.join("config.toml"),
             helper: sandbox.path().join("unused.exe"),
+            locations: None,
         };
         let state = ThreadState::new(paths);
         let protected = state.start_scan().unwrap();

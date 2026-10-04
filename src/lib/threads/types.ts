@@ -99,6 +99,69 @@ export interface ThreadReconcileResult {
   message: string;
 }
 
+export interface ThreadDeletionPreviewItem {
+  key: string;
+  threadId: string;
+  sourceId: string;
+  title?: string | null;
+  rolloutCount: number;
+  bytes: number;
+  canDelete: boolean;
+  reason?: string;
+}
+
+export interface ThreadDeletionPreview {
+  expectedHash: string;
+  items: ThreadDeletionPreviewItem[];
+  logicalCount: number;
+  rolloutCount: number;
+  warning: string;
+}
+
+export type ThreadDeletionItemStatus = 'deleted' | 'blocked' | 'failed' | 'interrupted' | 'restored';
+export interface ThreadDeletionResultItem {
+  key: string;
+  threadId: string;
+  status: ThreadDeletionItemStatus;
+  trashId?: string | null;
+  message: string;
+}
+
+export interface ThreadDeletionResult {
+  items: ThreadDeletionResultItem[];
+  deletedCount: number;
+  failedCount: number;
+}
+
+export interface ThreadTrashItem {
+  id: string;
+  threadId: string;
+  sourceId: string;
+  title: string | null;
+  deletedAt: string;
+  rolloutCount: number;
+  bytes: number;
+  state: 'deleted' | 'prepared' | 'interrupted' | 'restoring';
+  message?: string | null;
+}
+
+export interface ThreadTrashPage {
+  items: ThreadTrashItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface ThreadTrashRestorePreview {
+  id: string;
+  threadId: string;
+  rolloutCount: number;
+  expectedHash: string;
+  canRestore: boolean;
+  reason?: string;
+  warning: string;
+}
+
 export interface ThreadListQuery {
   search: string;
   scope: 'all' | 'active' | 'archived';
@@ -128,4 +191,9 @@ export interface ThreadsApi {
   list(query: ThreadListQuery): Promise<ThreadPage>;
   rebuild(): Promise<ThreadDashboard>;
   open(key: string): Promise<string>;
+  previewDeletion(keys: string[]): Promise<ThreadDeletionPreview>;
+  deleteThreads(keys: string[], expectedHash: string): Promise<ThreadDeletionResult>;
+  trash(query?: { offset?: number; limit?: number }): Promise<ThreadTrashPage>;
+  previewTrashRestore(id: string): Promise<ThreadTrashRestorePreview>;
+  restoreTrash(id: string, expectedHash: string): Promise<ThreadDeletionResult>;
 }

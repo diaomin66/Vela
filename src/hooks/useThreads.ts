@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { threadsApi } from '../lib/threads/api';
-import type { ThreadListQuery, ThreadSettings } from '../lib/threads/types';
+import type { ThreadDeletionPreview, ThreadDeletionResult, ThreadListQuery, ThreadSettings } from '../lib/threads/types';
 import { errorMessage } from '../lib/utils';
 
 export const threadKeys = {
@@ -64,3 +64,10 @@ export function useThreads(query: ThreadListQuery) {
 
 export function useThreadDetail(key: string) { return useQuery({ queryKey: threadKeys.detail(key), queryFn: () => threadsApi.detail(key), staleTime: 0 }); }
 export function useThreadRestore(key: string) { return useQuery({ queryKey: threadKeys.restore(key), queryFn: () => threadsApi.previewRestore(key), staleTime: 0 }); }
+
+export function useThreadDeletion() {
+  const client = useQueryClient();
+  const preview = useMutation<ThreadDeletionPreview, Error, string[]>({ mutationFn: (keys) => threadsApi.previewDeletion(keys) });
+  const remove = useMutation<ThreadDeletionResult, Error, { keys: string[]; expectedHash: string }>({ mutationFn: ({ keys, expectedHash }) => threadsApi.deleteThreads(keys, expectedHash), onSettled: () => { void client.invalidateQueries({ queryKey: threadKeys.all }); } });
+  return { preview, remove };
+}

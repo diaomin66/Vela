@@ -108,6 +108,7 @@ mod tests {
             data: "unused-test-data".into(),
             config: "unused-test-config".into(),
             helper: "unused-test-helper".into(),
+            locations: None,
         })
     }
 

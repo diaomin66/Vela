@@ -173,6 +173,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("config.toml"),
             helper: directory.path().join("helper.exe"),
+            locations: None,
         };
         (directory, paths, core::Store::default())
     }

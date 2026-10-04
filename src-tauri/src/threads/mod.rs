@@ -193,6 +193,47 @@ impl ThreadState {
         Ok(storage::read_state(&self.paths)?.settings)
     }
 
+    pub(crate) fn preview_delete(&self, keys: Vec<String>) -> Result<ThreadDeletionPreview, String> {
+        self.initialize()?;
+        let _operation = self.operation.lock().map_err(|_| "线程删除任务不可用。")?;
+        // Include archived rollouts even when the normal list excludes them;
+        // the official RPC always deletes the complete logical thread.
+        let index = scan::deletion_checkpoint(&self.paths)?;
+        storage::write(&self.paths, &index)?;
+        storage::preview_delete(&self.paths, keys)
+    }
+
+    pub(crate) fn delete(&self, keys: Vec<String>, expected_hash: String) -> Result<ThreadDeletionResult, String> {
+        self.initialize()?;
+        let _operation = self.operation.lock().map_err(|_| "线程删除任务不可用。")?;
+        let mut result = storage::delete(&self.paths, keys, expected_hash)?;
+        if let Err(error) = self.scan_locked_mode(false, false) {
+            for item in &mut result.items { item.message.push_str(&format!(" 清单暂未刷新：{error}")); }
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn list_trash(&self, offset: u32, limit: u32) -> Result<ThreadTrashPage, String> {
+        self.initialize()?;
+        storage::list_trash(&self.paths, offset, limit)
+    }
+
+    pub(crate) fn preview_trash_restore(&self, id: String) -> Result<ThreadTrashRestorePreview, String> {
+        self.initialize()?;
+        let _operation = self.operation.lock().map_err(|_| "回收站恢复任务不可用。")?;
+        storage::preview_trash_restore(&self.paths, id)
+    }
+
+    pub(crate) fn restore_trash(&self, id: String, expected_hash: String) -> Result<ThreadDeletionResult, String> {
+        self.initialize()?;
+        let _operation = self.operation.lock().map_err(|_| "回收站恢复任务不可用。")?;
+        let mut result = storage::restore_trash(&self.paths, id, expected_hash)?;
+        if let Err(error) = self.scan_locked_mode(false, false) {
+            for item in &mut result.items { item.message.push_str(&format!(" 清单暂未刷新：{error}")); }
+        }
+        Ok(result)
+    }
+
     pub(crate) fn reconcile(&self, source_id: String) -> Result<ThreadReconcileResult, String> {
         self.initialize()?;
         let _operation = self.operation.lock().map_err(|_| "线程索引任务不可用。")?;
@@ -251,6 +292,17 @@ impl ThreadState {
         {
             return Err("线程保护检查未完成，请在线程页面处理保护错误后重试。".into());
         }
+        Ok(())
+    }
+
+    pub(crate) fn checkpoint_location_change(&self) -> Result<(), String> {
+        self.initialize()?;
+        let _operation = self.operation.lock().map_err(|_| "线程来源保护任务不可用。")?;
+        let index = scan::deletion_checkpoint(&self.paths)?;
+        let incomplete = index.protection.failed_count > 0 || index.protection.pending_count > 0
+            || index.sources.iter().any(|source| source.error.is_some());
+        storage::write(&self.paths, &index)?;
+        if incomplete { return Err("原数据目录尚未完成线程保护，请处理保护错误后再切换位置。".into()); }
         Ok(())
     }
 
@@ -345,6 +397,7 @@ mod tests {
             data: directory.path().join("data"),
             config: directory.path().join("new-user-home/config.toml"),
             helper: directory.path().join("unused.exe"),
+            locations: None,
         };
         (directory, ThreadState::new(paths))
     }

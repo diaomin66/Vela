@@ -1,9 +1,10 @@
-import type { ThreadDashboard, ThreadRestorePreview, ThreadSettings, ThreadSummary, ThreadsApi } from './types';
+import type { ThreadDashboard, ThreadDeletionPreview, ThreadDeletionResult, ThreadRestorePreview, ThreadSettings, ThreadSummary, ThreadTrashItem, ThreadTrashPage, ThreadTrashRestorePreview, ThreadsApi } from './types';
 import { threadNeedsAttention, threadTitle } from './presentation';
 
-export function createPreviewThreads(now: () => number = Date.now, empty = false, scenario: 'standard' | 'batch' = 'standard'): ThreadsApi {
+export function createPreviewThreads(now: () => number = Date.now, empty = false, scenario: 'standard' | 'batch' | 'delete' | 'interrupted' = 'standard'): ThreadsApi {
   let settings: ThreadSettings = { enabled: true, intervalSeconds: 60, protectBeforeConfigurationChange: true, includeArchived: true };
   let revision = 1;
+  let deletionRevision = 1;
   let scannedAt = empty ? null : new Date(now()).toISOString();
   let simulatedWriteFailure = scenario === 'batch';
   const titles = ['工作台导航与交互整理', '订单服务的性能分析', '项目文档与发布说明', '恢复上周的设计讨论', '团队知识库的检索体验', 'Windows 安装流程检查', '接口错误处理与重试', '仪表盘的浅色与深色主题'];
@@ -23,6 +24,15 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
       recoverability: missing ? 'recoverable' : index === 6 ? 'unavailable' : 'source-present', fingerprint: `demo-hash-${index}`, scanRevision: String(revision),
     };
   });
+  if (scenario === 'delete') {
+    const original = threads[0];
+    threads.push({ ...original, key: original.key + ':history', selectedRollout: false, relativePath: 'sessions/history-' + original.threadId + '.jsonl', path: original.path.replace('rollout-', 'history-'), title: original.title + ' · 历史版本' });
+  }
+  const trash: ThreadTrashItem[] = [];
+  const removed = new Map<string, ThreadSummary[]>();
+  let simulatedDeletionFailure = scenario === 'delete';
+  let simulatedRestoreFailure = scenario === 'delete';
+  const deletionKey = (keys: string[]) => `${deletionRevision}:${[...new Set(keys)].sort().join('|')}`;
   function find(key: string) {
     const value = threads.find((thread) => thread.key === key);
     if (!value) throw new Error('线程记录不存在，请重新扫描。');
@@ -45,6 +55,19 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
     const conflict = scenario === 'batch' && thread.threadId.endsWith('000000000012');
     return structuredClone({ thread, snapshotHash: thread.fingerprint, targetPath: thread.path, targetExists: targetExists || conflict, targetHash: conflict ? 'different-content' : targetExists ? thread.fingerprint : null, conflict, expectedHash: `${thread.key}:${thread.fingerprint}:${targetExists ? thread.fingerprint : 'missing'}`, warning: conflict ? '目标位置已有不同内容，本次不会覆盖。' : targetExists ? '现有文件与备份一致，不需要覆盖。' : null });
   }
+  function previewDeletion(keys: string[]): ThreadDeletionPreview {
+    const selected = [...new Set(keys)].map(find);
+    const groups = new Map<string, ThreadSummary[]>();
+    for (const thread of selected) {
+      const group = `${thread.sourceId}:${thread.threadId}`;
+      groups.set(group, threads.filter((candidate) => candidate.sourceId === thread.sourceId && candidate.threadId === thread.threadId));
+    }
+    const items = [...groups.values()].map((members) => {
+      const blocked = scenario === 'delete' && members.some((thread) => thread.threadId.endsWith('000000000005'));
+      return { key: members[0].key, threadId: members[0].threadId, sourceId: members[0].sourceId, title: threadTitle(members[0]), rolloutCount: members.length, bytes: members.reduce((sum, thread) => sum + thread.bytes, 0), canDelete: !blocked, reason: blocked ? '这条线程是其他历史记录的基础，需先处理依赖它的后代线程。' : undefined };
+    });
+    return structuredClone({ expectedHash: deletionKey(keys), items, logicalCount: items.length, rolloutCount: items.reduce((sum, item) => sum + item.rolloutCount, 0), warning: '整条线程的所有记录文件会移入 AhaX 回收站。保护副本保留，可检查后撤销删除。' });
+  }
   return {
     async dashboard() { return dashboard(); },
     async list(query) {
@@ -59,6 +82,53 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
       if (thread.sourceId !== 'demo-current') throw new Error('这条线程属于另一个数据目录，请先在 Codex 中切换到对应目录。');
       if (thread.integrity !== 'valid') throw new Error('线程原文件尚不可用，请先恢复或完成检查。');
       return '演示模式不会打开 Codex。桌面版会进入这条原生对话。';
+    },
+    async previewDeletion(keys) { return previewDeletion(keys); },
+    async deleteThreads(keys, expectedHash) {
+      if (deletionKey(keys) !== expectedHash) throw new Error('线程列表已经变化，请重新预览删除。');
+      const preview = previewDeletion(keys);
+      const results: ThreadDeletionResult['items'] = [];
+      for (const item of preview.items) {
+        if (!item.canDelete) { results.push({ key: item.key, threadId: item.threadId, status: 'blocked', message: item.reason || '当前线程存在依赖，未删除。' }); continue; }
+        if (simulatedDeletionFailure && item.threadId.endsWith('000000000002')) { simulatedDeletionFailure = false; results.push({ key: item.key, threadId: item.threadId, status: 'failed', message: '演示：记录文件暂时被占用，请重新检查。' }); continue; }
+        const group = threads.filter((thread) => thread.sourceId === item.sourceId && thread.threadId === item.threadId);
+        const trashId = `trash-${crypto.randomUUID()}`;
+        const interrupted = scenario === 'interrupted' && item.threadId.endsWith('000000000001');
+        removed.set(trashId, group.map((thread) => structuredClone(thread)));
+        for (const thread of group) { const index = threads.findIndex((current) => current.key === thread.key); if (index >= 0) threads.splice(index, 1); }
+        const message = interrupted ? '删除未完全确认：本机服务响应中断。加密副本已保留，可在回收站预览撤销。' : '已移入 AhaX 回收站。';
+        trash.unshift({ id: trashId, threadId: item.threadId, sourceId: item.sourceId, title: item.title || null, deletedAt: new Date(now()).toISOString(), rolloutCount: item.rolloutCount, bytes: item.bytes, state: interrupted ? 'interrupted' : 'deleted', message: interrupted ? message : undefined });
+        results.push({ key: item.key, threadId: item.threadId, status: interrupted ? 'interrupted' : 'deleted', trashId, message });
+      }
+      deletionRevision += 1; revision += 1;
+      return { items: results, deletedCount: results.filter((item) => item.status === 'deleted').length, failedCount: results.filter((item) => item.status !== 'deleted').length };
+    },
+    async trash(query = {}) {
+      const offset = query.offset ?? 0; const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+      return structuredClone({ items: trash.slice(offset, offset + limit), total: trash.length, offset, limit } satisfies ThreadTrashPage);
+    },
+    async previewTrashRestore(id) {
+      const item = trash.find((entry) => entry.id === id);
+      if (!item) throw new Error('回收站记录不存在，请重新读取。');
+      return { id, threadId: item.threadId, rolloutCount: item.rolloutCount, expectedHash: `${deletionRevision}:${id}`, canRestore: ['deleted', 'prepared', 'interrupted', 'restoring'].includes(item.state), warning: '撤销会恢复会话原始记录并重新加入保护清单；独立附件与目标元数据不保证完整还原。官方 Codex 列表可能仍需重新索引。' } satisfies ThreadTrashRestorePreview;
+    },
+    async restoreTrash(id, expectedHash) {
+      if (`${deletionRevision}:${id}` !== expectedHash) throw new Error('回收站状态已经变化，请重新预览。');
+      const item = trash.find((entry) => entry.id === id); if (!item) throw new Error('回收站记录不存在。');
+      const recovered = removed.get(id) || [];
+      if (simulatedRestoreFailure) {
+        simulatedRestoreFailure = false;
+        item.state = 'interrupted';
+        const partial: ThreadDeletionResult['items'] = recovered.length > 1 ? [{ key: recovered[0].key, threadId: item.threadId, status: 'restored', message: '一份记录已恢复，仍需完成其余记录。' }] : [];
+        partial.push({ key: recovered[1]?.key || recovered[0]?.key || id, threadId: item.threadId, status: 'failed', message: '演示：目标位置暂时不可写，尚有记录未恢复。请重新检查。' });
+        return { items: partial, deletedCount: partial.length - 1, failedCount: 1 };
+      }
+      threads.push(...recovered.map((thread) => structuredClone(thread)));
+      item.state = 'restoring';
+      const message = scenario === 'interrupted' ? '会话记录已恢复并通过校验。官方列表尚未刷新：本机线程服务暂不可用，请在数据来源中重新索引。' : '已撤销删除并重新加入保护清单。';
+      const result = { items: recovered.map((thread) => ({ key: thread.key, threadId: item.threadId, status: 'restored' as const, message })), deletedCount: recovered.length, failedCount: 0 };
+      trash.splice(trash.findIndex((entry) => entry.id === id), 1); removed.delete(id); deletionRevision += 1; revision += 1;
+      return result;
     },
     async scan() {
       revision += 1; scannedAt = new Date(now()).toISOString();

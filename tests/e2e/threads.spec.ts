@@ -147,3 +147,135 @@ test('batch recovery previews conflicts, retains failed records and requires a f
   await expect(page.getByRole('button', { name: '预览找回 1 条', exact: true })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /^选择找回/ })).toHaveCount(1);
 });
+
+test('single deletion requires confirmation, survives scanning and can be undone from recycle bin', async ({ page }) => {
+  const title = '工作台导航与交互整理';
+  const row = page.getByRole('button', { name: '查看线程 ' + title, exact: true });
+  await row.click();
+  await page.getByRole('button', { name: '删除线程', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: '删除线程', exact: true });
+  await expect(dialog.getByRole('button', { name: '确认删除 1 条', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(row).toBeVisible();
+  await row.click();
+  await page.getByRole('button', { name: '删除线程', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '删除线程', exact: true });
+  await dialog.getByRole('button', { name: '确认删除 1 条', exact: true }).click();
+  await expect(dialog).toContainText('已移入回收站 1 条');
+  await dialog.getByRole('button', { name: '完成', exact: true }).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole('button', { name: '重新扫描', exact: true }).click();
+  await expect(row).toHaveCount(0);
+  await page.getByRole('button', { name: '回收站', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '线程回收站', exact: true });
+  await expect(dialog.locator('.thread-trash-row')).toHaveCount(1);
+  await dialog.getByRole('button', { name: '预览撤销', exact: true }).click();
+  await expect(dialog).toContainText('独立附件与目标元数据');
+  await dialog.getByRole('button', { name: '确认撤销删除', exact: true }).click();
+  await expect(dialog).toContainText('回收站是空的');
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(row).toBeVisible();
+});
+
+test('bulk deletion groups history versions, preserves failures and retries recovery without false success', async ({ page }) => {
+  await page.goto('/?threadDemo=delete');
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '线程', exact: true }).click();
+  await page.getByRole('button', { name: '管理线程', exact: true }).click();
+  for (const title of ['工作台导航与交互整理', '工作台导航与交互整理 · 历史版本', '订单服务的性能分析', '团队知识库的检索体验']) {
+    await page.getByRole('checkbox', { name: '选择线程 ' + title, exact: true }).check();
+  }
+  await page.getByRole('button', { name: '预览删除 4 条', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: '删除线程', exact: true });
+  await expect(dialog.locator('.thread-delete-intro')).toContainText('已选择 3 条线程');
+  await expect(dialog.locator('.thread-delete-intro')).toContainText('4 份记录文件');
+  await dialog.getByRole('button', { name: '确认删除 2 条', exact: true }).click();
+  await expect(dialog.locator('[data-state="deleted"]')).toHaveCount(1);
+  await expect(dialog.locator('[data-state="failed"]')).toHaveCount(1);
+  await expect(dialog.locator('[data-state="blocked"]')).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: /^确认删除/ })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: '重新检查', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: '完成', exact: true }).click();
+  await expect(page.getByRole('button', { name: '预览删除 2 条', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '回收站', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '线程回收站', exact: true });
+  await expect(dialog.locator('.thread-trash-row')).toContainText('2 份记录文件');
+  await dialog.getByRole('button', { name: '预览撤销', exact: true }).click();
+  await dialog.getByRole('button', { name: '确认撤销删除', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('暂时不可写');
+  await expect(dialog.getByRole('button', { name: '确认撤销删除', exact: true })).toHaveCount(0);
+  await dialog.getByRole('button', { name: '重新检查', exact: true }).click();
+  await dialog.getByRole('button', { name: '确认撤销删除', exact: true }).click();
+  await expect(dialog).toContainText('已撤销删除');
+  await expect(dialog).toContainText('回收站是空的');
+  await accessible(page);
+});
+
+test('delete preview and recycle bin stay rounded and readable at compact sizes', async ({ page }) => {
+  await page.getByRole('button', { name: '管理线程', exact: true }).click();
+  await page.getByRole('checkbox', { name: '选择本页线程', exact: true }).check();
+  await page.getByRole('button', { name: '预览删除 20 条', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: '删除线程', exact: true });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+    for (const width of [900, 390]) {
+      await page.setViewportSize({ width, height: width === 900 ? 680 : 844 });
+      const bounds = await dialog.evaluate((element) => ({ width: element.scrollWidth, client: element.clientWidth, right: element.getBoundingClientRect().right }));
+      expect(bounds.width).toBeLessThanOrEqual(bounds.client + 1);
+      expect(bounds.right).toBeLessThanOrEqual(width);
+      await accessible(page);
+      await page.screenshot({ path: `artifacts/screenshots/thread-delete-${theme}-${width}.png` });
+    }
+  }
+  await dialog.getByRole('button', { name: '确认删除 20 条', exact: true }).click();
+  await dialog.getByRole('button', { name: '完成', exact: true }).click();
+  await page.getByRole('button', { name: '回收站', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '线程回收站', exact: true });
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+    await page.setViewportSize({ width: 900, height: 680 });
+    await accessible(page);
+    await page.screenshot({ path: `artifacts/screenshots/thread-trash-${theme}-900.png` });
+  }
+});
+
+test('interrupted deletion opens recycle review and preserves successful restore index warnings', async ({ page }) => {
+  await page.goto('/?threadDemo=interrupted');
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '线程', exact: true }).click();
+  await page.getByRole('button', { name: '管理线程', exact: true }).click();
+  for (const title of ['工作台导航与交互整理', '订单服务的性能分析']) {
+    await page.getByRole('checkbox', { name: '选择线程 ' + title, exact: true }).check();
+  }
+  await page.getByRole('button', { name: '预览删除 2 条', exact: true }).click();
+  let dialog = page.getByRole('dialog', { name: '删除线程', exact: true });
+  await dialog.getByRole('button', { name: '确认删除 2 条', exact: true }).click();
+  await expect(dialog.locator('[data-state="interrupted"] .thread-badge')).toHaveText('需要确认');
+  await expect(dialog.locator('[data-state="deleted"]')).toHaveCount(1);
+  await expect(dialog.locator('[data-state="interrupted"]')).toContainText('删除未完全确认');
+  await expect(dialog.getByRole('button', { name: '重新检查', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: /^确认删除/ })).toHaveCount(0);
+  await accessible(page);
+  await dialog.getByRole('button', { name: '前往回收站', exact: true }).click();
+  dialog = page.getByRole('dialog', { name: '线程回收站', exact: true });
+  const interrupted = dialog.locator('.thread-trash-row').filter({ hasText: '工作台导航与交互整理' });
+  await expect(interrupted).toContainText('需要检查');
+  await interrupted.getByRole('button', { name: '预览撤销', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: '确认撤销删除', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: '确认撤销删除', exact: true }).click();
+  await expect(dialog.locator('.thread-restore-outcome')).toContainText('会话记录已恢复并通过校验');
+  await expect(dialog.locator('.thread-restore-outcome')).toContainText('官方列表尚未刷新');
+  await expect(dialog.locator('.thread-restore-outcome')).toContainText('数据来源中重新索引');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(dialog.locator('.thread-trash-row')).toHaveCount(1);
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await accessible(page);
+    const bounds = await dialog.evaluate((element) => ({ width: element.scrollWidth, client: element.clientWidth }));
+    expect(bounds.width).toBeLessThanOrEqual(bounds.client + 1);
+    await page.screenshot({ path: `artifacts/screenshots/thread-restore-notice-${theme}-390.png` });
+  }
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.locator('.thread-batch-actions')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '查看线程 工作台导航与交互整理', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '查看线程 订单服务的性能分析', exact: true })).toHaveCount(0);
+});
