@@ -48,8 +48,8 @@ export function EvaluationPage({ workspace }: { workspace: Dashboard }) {
     } else setDeleteError('删除未完成，请重试；记录状态以刷新结果为准。');
   }
   return <div className="view-enter evaluation-page">
-    <nav className="evaluation-subnav" aria-label="评测子导航"><button aria-current={mode === 'manual' ? 'page' : undefined} onClick={() => setMode('manual')}><FlaskConical size={16}/>单次检测</button><button aria-current={mode === 'scheduled' ? 'page' : undefined} onClick={() => setMode('scheduled')}><Clock3 size={16}/>定时评测</button></nav>
     <EvaluationHeading mode={mode} ready={!!data} pending={evaluation.pending} running={!!data?.active} onPlan={() => setEditing(true)} onHistory={() => setHistoryOpen(true)}/>
+    <nav className="evaluation-subnav segmented-control" aria-label="评测子导航"><button aria-current={mode === 'manual' ? 'page' : undefined} onClick={() => setMode('manual')}><FlaskConical size={16}/>单次检测</button><button aria-current={mode === 'scheduled' ? 'page' : undefined} onClick={() => setMode('scheduled')}><Clock3 size={16}/>定时评测</button></nav>
     {(evaluation.error || data?.error) && <p className="inline-error" role="alert">{evaluation.error || data?.error}</p>}
     {!data ? <div className="evaluation-loading"><LoaderCircle className="spin" size={25}/><span>正在读取评测记录</span>{evaluation.error && <button className="button button-quiet" onClick={() => void evaluation.refresh()}>重试</button>}</div> : <>
       {mode === 'scheduled' && <EvaluationSchedule data={data} pending={evaluation.pending} onEdit={() => setEditing(true)} onToggle={() => void evaluation.save({ ...data.plan, scheduleEnabled: !data.plan.scheduleEnabled })}/>}

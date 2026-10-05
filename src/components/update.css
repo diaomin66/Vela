@@ -1,36 +1,36 @@
 .update-panel { background: transparent; }
-.update-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.update-heading h3 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 650; }
-.update-heading > span { padding: 4px 8px; border-radius: 7px; background: var(--field); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.update-status { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--stroke-soft); border-radius: var(--radius); background: var(--field); }
-.update-status-icon { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-soft); }
-.update-status-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
-.update-status-copy strong { color: var(--ink); font-size: 14px; line-height: 1.5; font-weight: 550; }
-.update-status-copy > span { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.update-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-5); }
+.update-heading h3 { margin: 0; color: var(--ink); font-size: var(--text-section); line-height: var(--leading-tight); font-weight: var(--weight-semibold); }
+.update-heading > span { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--field); font-size: var(--text-caption); line-height: var(--leading-body); color: var(--muted); font-variant-numeric: tabular-nums; }
+.update-status { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--field); }
+.update-status-icon { flex-shrink: 0; display: grid; place-items: center; width: var(--control-height); height: var(--control-height); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); }
+.update-status-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: var(--space-1); }
+.update-status-copy strong { color: var(--ink); font-size: var(--text-body); line-height: var(--leading-body); font-weight: var(--weight-semibold); }
+.update-status-copy > span { color: var(--muted); font-size: var(--text-caption); line-height: var(--leading-body); }
 .update-status.has-error .update-status-icon { background: var(--danger-soft); color: var(--danger); }
-.update-status .update-check { flex-shrink: 0; min-height: 34px; padding: 7px 10px; border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-soft); font-size: 12px; gap: 5px; }
+.update-status .update-check { flex-shrink: 0; min-height: var(--control-height); padding: var(--space-2) var(--space-3); border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--surface); font-size: var(--text-small); gap: var(--space-2); }
 .update-status .update-check:hover { background: var(--surface-hover); }
-.update-download { margin-top: 16px; }
-.update-download progress { display: block; width: 100%; height: 6px; border: 0; border-radius: 10px; overflow: hidden; appearance: none; background: var(--surface-hover); accent-color: var(--accent); }
-.update-download progress::-webkit-progress-bar { background: var(--surface-hover); border-radius: 10px; }
-.update-download progress::-webkit-progress-value { background: var(--accent); border-radius: 10px; transition: width .2s; }
-.update-download progress::-moz-progress-bar { background: var(--accent); border-radius: 10px; }
-.update-download > div { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.update-error { margin: 12px 0 0; color: var(--danger); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; max-height: 110px; overflow: auto; }
-.update-notes { margin-top: 15px; }
-.update-notes summary { display: flex; width: fit-content; align-items: center; gap: 6px; padding: 4px 0; color: var(--ink); font-size: 13px; cursor: pointer; list-style: none; border-radius: 7px; }
+.update-download { margin-top: var(--space-4); }
+.update-download progress { display: block; width: 100%; height: 8px; border: 0; border-radius: var(--radius-sm); overflow: hidden; appearance: none; background: var(--surface-hover); accent-color: var(--accent); }
+.update-download progress::-webkit-progress-bar { background: var(--surface-hover); border-radius: var(--radius-sm); }
+.update-download progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-sm); transition: width .2s; }
+.update-download progress::-moz-progress-bar { background: var(--accent); border-radius: var(--radius-sm); }
+.update-download > div { display: flex; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); color: var(--muted); font-size: var(--text-caption); line-height: var(--leading-body); font-variant-numeric: tabular-nums; }
+.update-error { margin: var(--space-3) 0 0; color: var(--danger); font-size: var(--text-small); line-height: var(--leading-body); overflow-wrap: anywhere; max-height: 132px; overflow: auto; }
+.update-notes { margin-top: var(--space-4); }
+.update-notes summary { display: flex; width: fit-content; align-items: center; gap: var(--space-2); min-height: var(--control-height-sm); padding: var(--space-1) 0; color: var(--ink); font-size: var(--text-small); font-weight: var(--weight-medium); line-height: var(--leading-body); cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .update-notes summary::-webkit-details-marker { display: none; }
 .update-notes[open] summary svg { transform: rotate(180deg); }
-.update-notes p { margin: 10px 0 0; padding: 16px; border-radius: var(--radius-sm); background: var(--field); color: var(--ink); font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 190px; overflow: auto; }
-.update-install p { margin: 15px 0 0; color: var(--ink); font-size: 12px; line-height: 1.8; }
-.update-panel .update-action { min-height: 40px; font-size: 13px; border-radius: var(--radius-sm); padding: 9px 13px; margin-top: 13px; }
-.update-auto { margin-top: 17px; padding-top: 0; color: var(--ink); font-size: 14px; }
+.update-notes p { margin: var(--space-3) 0 0; padding: var(--space-4); border-radius: var(--radius-sm); background: var(--field); color: var(--ink); font-size: var(--text-body); line-height: var(--leading-copy); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+.update-install p { margin: var(--space-4) 0 0; color: var(--ink); font-size: var(--text-small); line-height: var(--leading-body); }
+.update-panel .update-action { min-height: var(--control-height); font-size: var(--text-small); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-4); margin-top: var(--space-4); }
+.update-auto { margin-top: var(--space-4); padding-top: 0; }
 .update-panel .update-auto input { right: 0; z-index: 1; }
-.update-caption { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
-.app-footer .footer-update { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 8px; color: var(--ink); background: var(--surface-hover); margin-left: auto; margin-right: 14px; font-size: 12px; }
-@media (max-width: 420px) {
-  .update-status { flex-wrap: wrap; gap: 10px; padding: 14px; }
-  .update-status .update-check { margin-left: 50px; }
-  .app-footer .footer-update { margin-right: 6px; }
+.update-caption { margin: var(--space-1) 0 0; color: var(--muted); font-size: var(--text-small); line-height: var(--leading-body); }
+.app-footer .footer-update { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--ink); background: var(--surface-hover); margin-left: auto; margin-right: var(--space-4); font-size: var(--text-caption); line-height: var(--leading-tight); }
+@media (max-width: 520px) {
+  .update-status { flex-wrap: wrap; }
+  .update-status .update-check { margin-left: calc(var(--control-height) + var(--space-3)); }
+  .app-footer .footer-update { margin-right: var(--space-2); }
 }
 @media (prefers-reduced-motion: reduce) { .update-download progress::-webkit-progress-value { transition: none; } }

@@ -5,7 +5,7 @@ import { requestBudget, targetKey, validateEvaluationPlan, type EvaluationCase, 
 import { effortLabels } from '../../lib/models';
 import type { CatalogEntry, Dashboard } from '../../types';
 import { Select } from '../Select';
-import { EvaluationDialog } from './EvaluationDialog';
+import { Drawer } from '../Drawer';
 import { intervalLabel } from './presentation';
 
 const REQUEST_TIMEOUT_PRESETS = [120, 300, 600, 1800];
@@ -37,7 +37,7 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
     if (problem) { setError(problem); return; }
     if (await (start ? onStart(plan) : onSave(plan))) onClose();
   }
-  return <EvaluationDialog title={mode === 'manual' ? '新建检测' : '定时计划'} subtitle={mode === 'manual' ? '选择模型和题目，执行一轮检测' : '保存后按计划在后台执行'} onClose={onClose} locked={pending} className="evaluation-plan-dialog">
+  return <Drawer title={mode === 'manual' ? '新建检测' : '定时计划'} subtitle={mode === 'manual' ? '选择模型和题目，执行一轮检测' : '保存后按计划在后台执行'} onClose={onClose} locked={pending}>
     <form className="editor-form evaluation-plan" noValidate onSubmit={(event) => { event.preventDefault(); void submit(mode === 'manual'); }}>
       <div className="editor-scroll">
         <section className="evaluation-plan-section"><div className="evaluation-section-label"><h3>被测模型</h3><span>{plan.targets.length} / 6</span></div>
@@ -57,13 +57,13 @@ export function EvaluationPlanDrawer({ initial, workspace, cases, pending, reque
           {customTimeout && <div className="evaluation-timeout-custom"><label htmlFor="evaluation-timeout-seconds">超时秒数</label><input id="evaluation-timeout-seconds" type="number" min={30} max={3600} step={1} required value={Number.isFinite(plan.requestTimeoutSeconds) ? plan.requestTimeoutSeconds : ''} aria-describedby="evaluation-timeout-hint" aria-invalid={error?.startsWith('请求超时') || undefined} disabled={pending} onChange={(event) => patch({ requestTimeoutSeconds: event.target.valueAsNumber })}/></div>}
           <p id="evaluation-timeout-hint" className="evaluation-caption">每道题与模型复评分别计时，支持 30–3600 秒。</p>
         </section>
-        {mode === 'scheduled' && <section className="evaluation-plan-section"><label className="evaluation-schedule-toggle" htmlFor="evaluation-schedule"><span><Clock3 size={17}/><strong>启用定时</strong></span><input id="evaluation-schedule" type="checkbox" checked={plan.scheduleEnabled} disabled={pending} onChange={(event) => patch({ scheduleEnabled: event.target.checked })}/></label>
+        {mode === 'scheduled' && <section className="evaluation-plan-section"><label className="editor-settings-toggle evaluation-schedule-toggle" htmlFor="evaluation-schedule"><span><Clock3 size={17}/><strong>启用定时</strong></span><input id="evaluation-schedule" type="checkbox" checked={plan.scheduleEnabled} disabled={pending} onChange={(event) => patch({ scheduleEnabled: event.target.checked })}/><span aria-hidden="true"/></label>
           <div className="evaluation-interval"><Select ariaLabel="评测间隔" value={String(intervalMinutes)} options={[...new Set([10, 30, 60, 180, 360, 1440, 10080, intervalMinutes])].sort((a, b) => a - b).map((minutes) => ({ value: String(minutes), label: intervalLabel(minutes) }))} onChange={(value) => patch({ intervalMinutes: Number(value), intervalHours: Math.max(1, Math.ceil(Number(value) / 60)) })} disabled={pending}/><p className="evaluation-caption">AhaX 在后台运行时执行，关闭窗口不会停止计划。</p></div>
         </section>}
         <p className="evaluation-cost">{desktop ? `每轮最多 ${requestBudget(plan)} 次模型请求，按渠道计费。` : `演示每轮 ${requestBudget(plan)} 次请求，不发送 API 请求或执行真实定时任务。`}</p>
         {(error || requestError) && <p className="inline-error" role="alert">{error || requestError}</p>}
       </div>
-      <footer className="evaluation-drawer-footer"><button type="button" className="button button-quiet" disabled={pending} onClick={onClose}>取消</button><button type="submit" className="button button-primary" disabled={pending || mode === 'manual' && (running || !entries.length)}>{pending ? '正在处理…' : mode === 'manual' ? '开始检测' : '保存计划'}</button></footer>
+      <footer className="editor-footer"><div className="editor-footer-actions"><button type="button" className="button button-quiet" disabled={pending} onClick={onClose}>取消</button><button type="submit" className="button button-primary" disabled={pending || mode === 'manual' && (running || !entries.length)}>{pending ? '正在处理…' : mode === 'manual' ? '开始检测' : '保存计划'}</button></div></footer>
     </form>
-  </EvaluationDialog>;
+  </Drawer>;
 }

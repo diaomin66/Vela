@@ -1,6 +1,6 @@
 .artifact-preview{position:relative;overflow:hidden;width:100%;aspect-ratio:4/3;border-radius:inherit;background:var(--surface-soft);isolation:isolate}
 .artifact-preview iframe{position:absolute;inset:0;width:960px;height:720px;border:0;transform-origin:top left;background:#fff;pointer-events:none}
 .artifact-preview[data-interactive] iframe{pointer-events:auto}
-.artifact-preview-error,.artifact-preview-loading{display:grid;height:100%;min-height:180px;place-items:center;padding:24px;color:var(--muted);font-size:13px;text-align:center}
+.artifact-preview-error,.artifact-preview-loading{display:grid;height:100%;min-height:180px;place-items:center;padding:24px;color:var(--muted);font-size: var(--text-small);text-align:center}
 .artifact-preview-error{color:var(--danger)}
 .artifact-preview-loading{background:var(--surface-soft)}

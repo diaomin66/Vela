@@ -131,5 +131,5 @@ test('saved appearance applies before the application module executes', async ({
   await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('#root')).toBeEmpty();
   await expect(theme(page)).toHaveCSS('color-scheme', 'dark');
-  await expect(theme(page)).toHaveCSS('background-color', 'rgb(19, 19, 21)');
+  await expect(theme(page)).toHaveCSS('background-color', 'rgb(20, 23, 29)');
 });
