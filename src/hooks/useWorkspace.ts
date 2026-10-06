@@ -3,12 +3,14 @@ import { api, desktop } from '../lib/api';
 import { errorMessage } from '../lib/utils';
 import type { Backup, CatalogEntry, ChangePreview, Dashboard, DiagnosticReport, Profile, ValidationResult, View } from '../types';
 
+export type SettingsPage = 'general' | 'locations' | 'updates';
+
 export type WorkspaceModal =
   | { type: 'editor'; profile?: Profile; initialModelId?: string }
   | { type: 'validate'; profile: Profile; modelId?: string }
   | { type: 'change'; preview: ChangePreview; operation: 'restore' | 'repair' | 'gateway'; targetId?: string }
   | { type: 'delete'; profile: Profile }
-  | { type: 'settings' }
+  | { type: 'settings'; initialPage?: SettingsPage }
   | null;
 
 export function useWorkspace() {

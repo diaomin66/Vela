@@ -45,7 +45,7 @@ test('Ultra remains distinct from max and persists as a native default', async (
   await expect(editor).toHaveCount(0);
   expect(await savedNativeReasoning(page)).toEqual({ multiAgentVersion: 'v2', ultraEffort: 'max' });
   await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '模型库', exact: true }).click();
-  const row = page.getByRole('region', { name: '主力渠道', exact: true }).locator('.catalog-row[data-model="example-code"]');
+  const row = page.locator('.catalog-row[data-channel="demo-work"][data-model="example-code"]');
   await expect(row.getByRole('combobox')).toHaveText('Ultra');
   await row.getByRole('combobox').click();
   await expect(page.getByRole('option')).toHaveText(['低', '中', '高', '超高', '最高', 'Ultra']);

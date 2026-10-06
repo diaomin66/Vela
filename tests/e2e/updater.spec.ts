@@ -15,6 +15,7 @@ test.beforeEach(async ({ page, request }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '渠道管理', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('navigation', { name: '设置页面' }).getByRole('button', { name: '软件更新', exact: true }).click();
 });
 
 test('preview update stays in memory and waits for the user to install', async ({ page }) => {
@@ -24,10 +25,11 @@ test('preview update stays in memory and waits for the user to install', async (
   await expect(panel.getByText('演示模式 · 仅模拟更新，不下载或安装软件。')).toBeVisible();
   await panel.getByRole('button', { name: '检查更新' }).click();
   await expect(panel.getByRole('progressbar', { name: '更新下载进度' })).toBeVisible();
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '完成', exact: true }).click();
   const badge = page.getByRole('button', { name: '更新已就绪', exact: true });
   await expect(badge).toBeVisible();
   await badge.click();
+  await expect(page.getByRole('navigation', { name: '设置页面' }).getByRole('button', { name: '软件更新', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(panel.getByText('安装会暂时停止本地转发，请在当前任务结束后继续。')).toBeVisible();
   await expect(panel.getByRole('button', { name: '安装并重启', exact: true })).toBeEnabled();
   await page.screenshot({ path: 'artifacts/screenshots/v4-update-ready.png' });
@@ -42,8 +44,9 @@ test('preview update stays in memory and waits for the user to install', async (
 test('automatic download preference saves independently of channel settings', async ({ page }) => {
   const panel = page.getByRole('region', { name: '软件更新', exact: true });
   await panel.getByRole('checkbox', { name: '自动下载新版本', exact: true }).uncheck();
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '完成', exact: true }).click();
   await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('navigation', { name: '设置页面' }).getByRole('button', { name: '软件更新', exact: true }).click();
   await expect(panel.getByRole('checkbox', { name: '自动下载新版本', exact: true })).not.toBeChecked();
   await panel.getByRole('button', { name: '检查更新', exact: true }).click();
   await expect(panel.getByText('发现新版本', { exact: true })).toBeVisible();
@@ -64,13 +67,13 @@ test('update panel and ready badge fit a narrow window', async ({ page }) => {
   expect(bounds.right).toBeLessThanOrEqual(390);
   const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(accessibility.violations.map((v) => ({ id: v.id, targets: v.nodes.map((node) => node.target) }))).toEqual([]);
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '完成', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expect(page.getByRole('button', { name: '更新已就绪', exact: true })).toBeInViewport();
 });
 
 test('maximum reasoning and opt-in none survive saving and reopening model settings', async ({ page }) => {
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: '完成', exact: true }).click();
   await page.locator('.channel-card').filter({ has: page.getByRole('heading', { name: '主力渠道', exact: true }) }).getByRole('button', { name: '管理模型', exact: true }).click();
   const editor = page.getByRole('dialog');
   await editor.getByRole('button', { name: 'example-code 的模型设置', exact: true }).click();
@@ -88,7 +91,7 @@ test('maximum reasoning and opt-in none survive saving and reopening model setti
   await expect(editor.getByRole('checkbox', { name: '关闭', exact: true })).toBeChecked();
   await editor.getByRole('button', { name: '保存渠道', exact: true }).click();
   await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '模型库', exact: true }).click();
-  const model = page.getByRole('region', { name: '主力渠道', exact: true }).locator('.catalog-row[data-model="example-code"]');
+  const model = page.locator('.catalog-row[data-model="example-code"]').filter({ has: page.getByRole('combobox', { name: /^主力渠道.*的推理强度$/ }) });
   await expect(model.getByRole('combobox')).toHaveText('最高');
   await model.getByRole('combobox').click();
   await expect(page.getByRole('option')).toHaveText(['关闭', '低', '中', '高', '超高', '最高']);

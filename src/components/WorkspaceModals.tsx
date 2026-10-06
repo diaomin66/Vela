@@ -11,7 +11,7 @@ export function WorkspaceModals({ workspace: w }: { workspace: WorkspaceControll
   const modal = w.modal;
   if (!modal) return null;
   if (modal.type === 'editor') return <ProfileEditor profile={modal.profile} initialModelId={modal.initialModelId} catalog={w.data?.catalog} onClose={w.closeModal} onChanged={w.refresh} onSaved={async () => { await w.refresh(); w.closeModal(); w.notify('渠道已保存'); }}/>;
-  if (modal.type === 'settings') return w.data && <SettingsDialog data={w.data} onClose={w.closeModal} onSaved={async () => { await w.refresh(); w.closeModal(); w.notify('设置已保存'); }}/>;
+  if (modal.type === 'settings') return w.data && <SettingsDialog data={w.data} initialPage={modal.initialPage} onClose={w.closeModal} onSaved={async () => { await w.refresh(); w.closeModal(); w.notify('设置已保存'); }}/>;
   if (modal.type === 'delete') return <Dialog title="删除渠道" onClose={w.closeModal} locked={w.busy}>
     <p className="dialog-intro">删除「{modal.profile.name}」及其 Key。引用此渠道的历史备份可能无法恢复。</p>
     {w.modalError && <div className="inline-error" role="alert">{w.modalError}</div>}

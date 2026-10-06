@@ -25,7 +25,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.dataset.themeMode = mode;
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#14171d' : '#f3f4f6');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#11151c' : '#f7f8fa');
   }, [mode, theme]);
   useEffect(() => {
     function sync(event: StorageEvent) { if (event.key === storageKey || event.key === null) updateMode(validMode(event.newValue)); }

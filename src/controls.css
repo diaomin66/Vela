@@ -1,18 +1,18 @@
 /* All workspaces share the same control sizes, text roles and state vocabulary. */
-.button { min-height: var(--control-height); padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: var(--text-small); line-height: var(--leading-body); font-weight: var(--weight-semibold); white-space: nowrap; }
+.button { min-height: var(--control-height); padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: var(--text-small); line-height: var(--leading-body); font-weight: var(--weight-medium); white-space: nowrap; }
 .button-primary { color: var(--on-accent); background: var(--accent); }
 .button-primary:hover:not(:disabled) { background: var(--accent-hover); }
-.button-quiet { color: var(--ink); background: var(--surface); border-color: var(--border); }
+.button-quiet { color: var(--ink); background: var(--surface); border-color: var(--stroke-soft); }
 .button-quiet:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
 .button-soft { color: var(--selected-ink); background: var(--selected-bg); }
 .button-soft:hover:not(:disabled) { background: var(--surface-hover); }
-.button-danger { color: var(--on-accent); background: var(--danger); }
+.button-danger { color: var(--on-danger); background: var(--danger); }
 .button-compact { min-height: var(--control-height-sm); padding: var(--space-1) var(--space-3); }
 .text-button { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-height-sm); padding: var(--space-1) var(--space-2); font-size: var(--text-small); font-weight: var(--weight-semibold); color: var(--ink); white-space: nowrap; border-radius: var(--radius-sm); }
 .text-button:hover:not(:disabled) { background: var(--surface-hover); }
 .icon-button { width: var(--control-height-sm); height: var(--control-height-sm); display: inline-flex; align-items: center; justify-content: center; color: var(--muted); border-radius: var(--radius-sm); padding: 0; flex-shrink: 0; }
 .icon-button:hover:not(:disabled) { background: var(--surface-hover); color: var(--ink); }
-.search-input { display: flex; align-items: center; gap: var(--space-3); min-width: 0; height: var(--control-height); background: var(--field); border: 1px solid var(--border); color: var(--muted); padding: 0 var(--space-3); border-radius: var(--radius-sm); }
+.search-input { display: flex; align-items: center; gap: var(--space-3); min-width: 0; height: var(--control-height); background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 0 var(--space-3); border-radius: var(--radius-sm); }
 .search-input input { background: none; border: 0; width: 100%; min-width: 0; min-height: 0; height: 100%; font-size: var(--text-body); color: var(--ink); }
 .search-input input::placeholder { color: var(--muted); }
 .search-input:focus-within { border-color: var(--focus); box-shadow: var(--focus-ring); }

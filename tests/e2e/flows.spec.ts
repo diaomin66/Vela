@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 const nav = (page: Page, name: string) => page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name, exact: true });
 const channel = (page: Page, name: string) => page.locator('.channel-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
-const modelRow = (page: Page, channelName: string, modelId: string) => page.getByRole('region', { name: channelName, exact: true }).locator(`.catalog-row[data-model="${modelId}"]`);
+const modelRow = (page: Page, channelName: string, modelId: string) => page.locator(`.catalog-row[data-model="${modelId}"]`).filter({ has: page.locator('.catalog-model > span').filter({ hasText: new RegExp(`^${channelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*/|$)`) }) });
 
 // Some Windows test environments return an empty 204 for loopback Vite modules.
 // Opt into a test-only static GET bridge when needed; it never
@@ -97,7 +97,7 @@ test('discovery, selection, aliases and unified application preserve key privacy
   await selectOption(page, editor.getByRole('combobox', { name: '渠道默认模型', exact: true }), '生产主力（example-code）');
   await editor.getByRole('button', { name: '保存渠道', exact: true }).click();
   await expect(editor).toHaveCount(0);
-  await expect(channel(page, '测试工作流')).toContainText('2 个模型已启用');
+  await expect(channel(page, '测试工作流').locator('.channel-models')).toHaveText('已启用模型2个');
   await expect(channel(page, '测试工作流')).toContainText('生产主力');
   await nav(page, '模型库').click();
   const selected = modelRow(page, '测试工作流', 'example-code');
@@ -152,6 +152,7 @@ test('model search and channel filter retain distinct same-ID entries', async ({
   await expect(page.locator('.catalog-row')).toHaveCount(2);
   await expect(modelRow(page, '主力渠道', 'example-code')).toBeVisible();
   await expect(modelRow(page, '备用渠道', 'example-code')).toBeVisible();
+  await expect(page.locator('.catalog-row[data-model="example-code"] .catalog-model > span')).toHaveText(['主力渠道/example-code', '备用渠道']);
   await selectOption(page, page.getByRole('combobox', { name: '按渠道筛选', exact: true }), '备用渠道');
   await expect(page.locator('.catalog-row')).toHaveCount(1);
   await expect(modelRow(page, '备用渠道', 'example-code')).toBeVisible();
@@ -360,9 +361,9 @@ test('large model catalogs stay searchable while navigation and footer remain fi
     });
   });
   await page.getByRole('button', { name: '刷新主力渠道', exact: true }).click();
-  await expect(channel(page, '主力渠道')).toContainText('240 个模型已启用');
+  await expect(channel(page, '主力渠道').locator('.channel-models')).toHaveText('已启用模型240个');
   await nav(page, '模型库').click();
-  await expect(page.getByRole('region', { name: '主力渠道', exact: true }).locator('.catalog-row')).toHaveCount(200);
+  await expect(page.locator('.catalog-row[data-channel="demo-work"]')).toHaveCount(200);
   const header = page.locator('.app-header');
   const before = await header.boundingBox();
   expect(before).not.toBeNull();
