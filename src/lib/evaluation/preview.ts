@@ -37,7 +37,7 @@ export function createPreviewEvaluation(now: () => number = Date.now, workspace?
             elapsedMs: artwork ? 156000 + index * 2431 : 9400 + index * 331, inputTokens: 183, outputTokens: artwork ? 3460 : 280,
             error: disconnected ? '演示请求超时（本次上限 300 秒），未自动重试。' : null, judge: null };
         }));
-        runs.push({ id: `demo-evaluation-${index}`, trigger: 'scheduled', status: 'completed', startedAt, finishedAt: new Date(Date.parse(startedAt) + 240000).toISOString(), completedCases: results.length, totalCases: results.length, targetCount: profiles.length, caseVersion: 'vela-demo-2', plan, results, error: null });
+        runs.push({ id: `demo-evaluation-${index}`, trigger: 'scheduled', status: 'completed', startedAt, finishedAt: new Date(Date.parse(startedAt) + 240000).toISOString(), completedCases: results.length, totalCases: results.length, targetCount: profiles.length, caseVersion: 'ahax-demo-2', plan, results, error: null });
       }
     })();
   }
@@ -53,9 +53,9 @@ export function createPreviewEvaluation(now: () => number = Date.now, workspace?
   function dashboard(): EvaluationDashboard {
     advance();
     return structuredClone({ plan: saved, cases: [
-      { id: 'candy', title: '糖果推理', description: '固定抽取规则，核对最小保证数量。', version: 'vela-demo-1' },
-      { id: 'pelican', title: '鹈鹕动画', description: '用 HTML 与 SVG 创建骑行的 2D 动画。', version: 'vela-demo-2' },
-      { id: 'judgment', title: '模型判题', description: '识别正确与错误答案，核对判断标签。', version: 'vela-demo-1' },
+      { id: 'candy', title: '糖果推理', description: '固定抽取规则，核对最小保证数量。', version: 'ahax-demo-1' },
+      { id: 'pelican', title: '鹈鹕动画', description: '用 HTML 与 SVG 创建骑行的 2D 动画。', version: 'ahax-demo-2' },
+      { id: 'judgment', title: '模型判题', description: '识别正确与错误答案，核对判断标签。', version: 'ahax-demo-1' },
     ], active, history: runs.map(summary), nextRunAt, error: null });
   }
   function find(id: string) {
@@ -84,7 +84,7 @@ export function createPreviewEvaluation(now: () => number = Date.now, workspace?
           error: null, judge: plan.judge && !svg ? { score: 88 - index * 7, explanation: '演示复评：答案清晰，推导还可以展开。', profileId: plan.judge.profileId, modelId: plan.judge.modelId, error: null } : null,
         };
       }));
-      active = { id: crypto.randomUUID(), trigger: 'manual', status: 'running', startedAt: stamp(), finishedAt: null, caseVersion: 'vela-demo-2', completedCases: 0, totalCases: plannedResults.length, targetCount: plan.targets.length, plan: structuredClone(plan), results: [], error: null };
+      active = { id: crypto.randomUUID(), trigger: 'manual', status: 'running', startedAt: stamp(), finishedAt: null, caseVersion: 'ahax-demo-2', completedCases: 0, totalCases: plannedResults.length, targetCount: plan.targets.length, plan: structuredClone(plan), results: [], error: null };
       return dashboard();
     },
     async cancel(runId) { advance(); if (active?.id === runId) { active.status = 'cancelled'; active.finishedAt = stamp(); runs.unshift(active); active = null; } return dashboard(); },

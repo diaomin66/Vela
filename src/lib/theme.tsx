@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
-const storageKey = 'vela:appearance:v1';
+const storageKey = 'ahax:appearance:v1';
 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
 const subscribe = (notify: () => void) => {
   systemTheme.addEventListener('change', notify);

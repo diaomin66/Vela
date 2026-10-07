@@ -1,6 +1,6 @@
 # 评测模块结构
 
-AhaX 0.7.0 继续使用 Tauri 2、React 19、Rust，以及已有 TanStack Query 与 Radix Primitives。单次与定时视图共享同一执行服务、查询缓存和记录格式，通过运行来源区分。浏览器的 iframe sandbox 承担生成页面的执行隔离，不把模型代码放进 React DOM，不引入第二套应用框架。
+ahaX 0.7.0 继续使用 Tauri 2、React 19、Rust，以及已有 TanStack Query 与 Radix Primitives。单次与定时视图共享同一执行服务、查询缓存和记录格式，通过运行来源区分。浏览器的 iframe sandbox 承担生成页面的执行隔离，不把模型代码放进 React DOM，不引入第二套应用框架。
 
 ## 视图和数据
 

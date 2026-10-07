@@ -9,12 +9,12 @@ import ts from 'typescript';
 import { chromium } from '@playwright/test';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
-assert.equal(path.basename(executable).toLowerCase(), 'vela.exe');
+const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/ahax.exe');
+assert.equal(path.basename(executable).toLowerCase(), 'ahax.exe');
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'artifact-native-smoke-'));
 const codexHome = path.join(sandbox, 'codex');
-const dataDirectory = path.join(sandbox, 'vela-data');
+const dataDirectory = path.join(sandbox, 'ahax-data');
 await mkdir(codexHome);
 await mkdir(dataDirectory);
 await writeFile(path.join(codexHome, 'config.toml'), 'model = "preview-smoke-only"\n');
@@ -49,7 +49,7 @@ async function cleanupSyntheticGatewayCredential() {
   const expected = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20)}`;
   assert.equal(stored, expected, 'Only remove the credential derived from this isolated test directory.');
   await new Promise((resolve, reject) => {
-    const command = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:Vela/connection/${stored}`], { windowsHide: true, stdio: 'ignore' });
+    const command = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:ahaX/connection/${stored}`], { windowsHide: true, stdio: 'ignore' });
     command.once('error', reject);
     command.once('close', (code) => code === 0 ? resolve() : reject(new Error('Could not remove the synthetic gateway credential.')));
   });
@@ -57,7 +57,7 @@ async function cleanupSyntheticGatewayCredential() {
 try {
   child = spawn(executable, [], {
     cwd: path.dirname(executable), windowsHide: true, stdio: 'ignore',
-    env: { ...process.env, CODEX_HOME: codexHome, VELA_DATA_DIR: dataDirectory, HTTP_PROXY: proxy, HTTPS_PROXY: proxy, ALL_PROXY: proxy, NO_PROXY: '127.0.0.1,localhost', WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --no-proxy-server` },
+    env: { ...process.env, CODEX_HOME: codexHome, AHAX_DATA_DIR: dataDirectory, HTTP_PROXY: proxy, HTTPS_PROXY: proxy, ALL_PROXY: proxy, NO_PROXY: '127.0.0.1,localhost', WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --no-proxy-server` },
   });
   let launchError;
   child.once('error', (error) => { launchError = error; });
@@ -136,7 +136,7 @@ try {
   }
   report.nativeIpc = { httpTransportBlockedByCsp: true, fallbackReturnedToChild: typeof probe.nativeCreate === 'boolean', directRawIpcAttempted: probe.rawAttempted, unexpectedPreviewRegistrations: 0, remainingPreviewSlots: capacityProbes.length };
   report.checks.push('Packaged WebView2 executes animation while blocking parent access, network and HTTP IPC; child fallback creates no backend preview');
-  const sendPlayback = (playing) => page.evaluate(({ token, playing }) => document.querySelector('#native-artifact-fixture').contentWindow.postMessage({ type: 'vela:artifact-playback', token, playing }, '*'), { token, playing });
+  const sendPlayback = (playing) => page.evaluate(({ token, playing }) => document.querySelector('#native-artifact-fixture').contentWindow.postMessage({ type: 'ahax:artifact-playback', token, playing }, '*'), { token, playing });
   await sendPlayback(false);
   await until(() => frame.locator('svg').evaluate((svg) => svg.animationsPaused()), 'SMIL pause');
   const before = await frame.locator('#counter').textContent();

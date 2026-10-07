@@ -36,7 +36,7 @@ pub(super) fn reparse(metadata: &fs::Metadata) -> bool {
     }
 }
 
-pub(super) fn guard(path: &Path, allow_missing: bool) -> Result<(), String> {
+pub(crate) fn guard(path: &Path, allow_missing: bool) -> Result<(), String> {
     absolute(path)?;
     let mut current = PathBuf::new();
     for part in path.components() {
@@ -107,7 +107,7 @@ pub(super) fn locations(paths: &AppPaths, value: &ResolvedLocations) -> Result<(
     for path in stores {
         directory(path)?;
         if overlaps(path, &value.codex_home)? || overlaps(path, &value.sqlite_home)? {
-            return Err("AhaX 保存目录不能与官方配置、索引或会话目录重叠。".into());
+            return Err("ahaX 保存目录不能与官方配置、索引或会话目录重叠。".into());
         }
         if normalized(&paths.data)?.starts_with(normalized(path)?) {
             return Err("保存目录不能覆盖应用身份与设置目录。".into());

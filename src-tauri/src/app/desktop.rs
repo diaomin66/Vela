@@ -105,11 +105,11 @@ pub(super) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         menu::{Menu, MenuItem},
         tray::TrayIconBuilder,
     };
-    let open = MenuItem::with_id(app, "open", "打开 AhaX", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "退出 AhaX", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "打开 ahaX", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "退出 ahaX", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &quit])?;
     let mut tray = TrayIconBuilder::new()
-        .tooltip("AhaX · 本地模型网关")
+        .tooltip("ahaX · 本地模型网关")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),
@@ -146,4 +146,27 @@ pub(super) fn show_main(app: &tauri::AppHandle) {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
+}
+
+pub(super) fn show_startup_error(message: &str) {
+    #[cfg(windows)]
+    {
+        let title: Vec<u16> = "ahaX 启动未完成\0".encode_utf16().collect();
+        let text: Vec<u16> = message
+            .replace('\0', " ")
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        unsafe {
+            windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW(
+                std::ptr::null_mut(),
+                text.as_ptr(),
+                title.as_ptr(),
+                windows_sys::Win32::UI::WindowsAndMessaging::MB_OK
+                    | windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR,
+            );
+        }
+    }
+    #[cfg(not(windows))]
+    eprintln!("ahaX: {message}");
 }

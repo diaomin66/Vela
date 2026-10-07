@@ -11,7 +11,8 @@ use tauri::State;
 
 async fn checkpoint(threads: &crate::threads::ThreadState) -> Result<(), String> {
     let threads = threads.clone();
-    tauri::async_runtime::spawn_blocking(move || threads.checkpoint()).await
+    tauri::async_runtime::spawn_blocking(move || threads.checkpoint())
+        .await
         .map_err(|_| "线程保护检查意外中断，未修改配置。".to_string())?
 }
 
@@ -30,7 +31,9 @@ pub(crate) async fn apply_profile(
     expected_hash: String,
 ) -> Result<Backup, String> {
     checkpoint(&threads).await?;
-    core::apply_profile(&state.paths, &id, &expected_hash)
+    let result = core::apply_profile(&state.paths, &id, &expected_hash)?;
+    state.configuration_changed();
+    Ok(result)
 }
 #[tauri::command]
 pub(crate) fn preview_restore(
@@ -48,6 +51,7 @@ pub(crate) async fn restore_backup(
 ) -> Result<Backup, String> {
     checkpoint(&threads).await?;
     let result = core::restore_backup(&state.paths, &id, &expected_hash)?;
+    state.configuration_changed();
     refresh_gateway(&state).await?;
     Ok(result)
 }
@@ -63,6 +67,7 @@ pub(crate) async fn apply_repair(
 ) -> Result<Backup, String> {
     checkpoint(&threads).await?;
     let result = core::apply_repair(&state.paths, &expected_hash)?;
+    state.configuration_changed();
     refresh_gateway(&state).await?;
     Ok(result)
 }

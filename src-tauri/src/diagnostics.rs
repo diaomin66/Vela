@@ -997,6 +997,17 @@ pub async fn validate_connection(
         ));
         return result;
     }
+    if crate::catalog::is_internal_route_id(&input.model) {
+        result.items.push(item(
+            "model-internal-route",
+            "configuration",
+            "内部路由不能作为渠道模型",
+            "error",
+            "此名称属于本机统一模型目录，第三方不识别它；直接发送可能返回模型不存在的 404。",
+            Some("在渠道设置中填写服务商提供的真实模型 ID。旧直连会话也应选择真实模型名。"),
+        ));
+        return result;
+    }
     if input.key.trim().is_empty() {
         result.items.push(item(
             "key",
@@ -1031,7 +1042,7 @@ pub async fn validate_connection(
         .retry(reqwest::retry::never())
         .connect_timeout(Duration::from_secs(10))
         .timeout(REQUEST_TIMEOUT)
-        .user_agent("Vela/0.1 connection-check");
+        .user_agent(concat!("ahaX/", env!("CARGO_PKG_VERSION"), " connection-check"));
     let local = match url.host() {
         Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
         Some(Host::Ipv4(ip)) => ip.is_loopback(),
@@ -1541,6 +1552,20 @@ mod tests {
             endpoint: server.base_url.clone(),
             model: "manual-model-name".into(),
             key: "fake-unit-test-key".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn internal_routes_are_rejected_before_sending_a_paid_probe() {
+        let server = MockServer::start(vec![]);
+        for prefix in ["vela-", "ahax-"] {
+            let mut input = input_for(&server);
+            input.model = format!("{prefix}{}", "a".repeat(64));
+            let (_sender, receiver) = watch::channel(false);
+            let result = validate_connection(input, receiver).await;
+            assert!(!result.ok);
+            assert!(result.items.iter().any(|item| item.id == "model-internal-route"));
+            assert_eq!(server.count(), 0);
         }
     }
 

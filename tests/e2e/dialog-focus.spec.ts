@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('native drawers and dialogs return keyboard focus to their opener', async ({ page }) => {
   await page.goto('/');
-  const settings = page.getByRole('button', { name: 'AhaX 设置', exact: true });
-  const drawer = page.getByRole('dialog', { name: 'AhaX 设置', exact: true });
+  const settings = page.getByRole('button', { name: 'ahaX 设置', exact: true });
+  const drawer = page.getByRole('dialog', { name: 'ahaX 设置', exact: true });
   await settings.click();
   const interval = drawer.getByRole('combobox', { name: '同步间隔', exact: true });
   await interval.focus();

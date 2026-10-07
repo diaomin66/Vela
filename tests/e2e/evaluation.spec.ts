@@ -83,7 +83,7 @@ async function accessible(page: Page, state: string) {
 }
 async function fits(page: Page, state: string) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), state).toBe(true);
-  for (const bounds of await page.locator('[role="dialog"], .vela-select-popup:popover-open').evaluateAll((elements) => elements.map((element) => ({ width: element.scrollWidth, client: element.clientWidth, left: element.getBoundingClientRect().left, right: element.getBoundingClientRect().right, window: innerWidth })))) {
+  for (const bounds of await page.locator('[role="dialog"], .ahax-select-popup:popover-open').evaluateAll((elements) => elements.map((element) => ({ width: element.scrollWidth, client: element.clientWidth, left: element.getBoundingClientRect().left, right: element.getBoundingClientRect().right, window: innerWidth })))) {
     expect(bounds.width, state).toBeLessThanOrEqual(bounds.client + 1);
     expect(bounds.left, state).toBeGreaterThanOrEqual(0);
     expect(bounds.right, state).toBeLessThanOrEqual(bounds.window + 1);
@@ -227,7 +227,7 @@ test('manual history survives navigation and compares the matching scored case',
   await choose(page, report.getByRole('combobox', { name: '对比历史评测', exact: true }), /1 个模型/);
   await expect(report.locator('.evaluation-comparison')).toContainText('0 较对比记录 · 相同模型、档位与测试项目');
   const exported = await exportReport(page, report);
-  expect(exported).toMatchObject({ status: 'completed', caseVersion: 'vela-demo-2', targetCount: 1 });
+  expect(exported).toMatchObject({ status: 'completed', caseVersion: 'ahax-demo-2', targetCount: 1 });
   expect(selectedIds.has(exported.id)).toBe(true);
   await report.getByRole('combobox', { name: '选择评测结果', exact: true }).click();
   await page.getByRole('option').filter({ hasText: '鹈鹕动画' }).click();

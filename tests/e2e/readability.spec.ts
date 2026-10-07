@@ -95,13 +95,13 @@ async function inspectResourceHierarchy(page: Page, label: string, context: stri
   if (label === '模型库') {
     await inspectTypography(page.locator('.catalog-model strong'), `${context} model names`, 18, 7);
     await inspectTypography(page.locator('.catalog-model > span'), `${context} original model identifiers`, 13, 4.5);
-    await inspectControlHeight(page.locator('.catalog-toolbar .search-input, .catalog-toolbar .vela-select-trigger'), `${context} model toolbar`, 44);
+    await inspectControlHeight(page.locator('.catalog-toolbar .search-input, .catalog-toolbar .ahax-select-trigger'), `${context} model toolbar`, 44);
     await inspectTypography(page.locator('.catalog-toolbar input'), `${context} model search text`, 16, 7);
   }
   if (label === '线程') {
     await inspectTypography(page.locator('.thread-row-main strong'), `${context} thread names`, 18, 7);
     await inspectTypography(page.locator('.thread-row-time'), `${context} thread dates`, 13, 4.5);
-    await inspectControlHeight(page.locator('.thread-search-controls .search-input, .thread-search-controls .vela-select-trigger'), `${context} thread toolbar`, 44);
+    await inspectControlHeight(page.locator('.thread-search-controls .search-input, .thread-search-controls .ahax-select-trigger'), `${context} thread toolbar`, 44);
     await inspectSegmentedControls(page.locator('.thread-scopes.segmented-control'), `${context} thread filters`);
   }
   if (label === '评测') {
@@ -114,7 +114,7 @@ async function inspectResourceHierarchy(page: Page, label: string, context: stri
 for (const mode of ['light', 'dark'] as const) {
   test(`${mode} workspaces retain readable type, stable navigation and reachable actions at desktop and narrow sizes`, async ({ page }) => {
     test.setTimeout(90_000);
-    await page.addInitScript((value) => localStorage.setItem('vela:appearance:v1', value), mode);
+    await page.addInitScript((value) => localStorage.setItem('ahax:appearance:v1', value), mode);
     await page.goto('/?evaluationDemo=gallery');
     await expect(page.getByRole('heading', { name: '渠道管理', exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
@@ -150,20 +150,20 @@ for (const mode of ['light', 'dark'] as const) {
   });
 
   test(`${mode} settings and model editors preserve the shared form hierarchy at desktop and narrow widths`, async ({ page }) => {
-    await page.addInitScript((value) => localStorage.setItem('vela:appearance:v1', value), mode);
+    await page.addInitScript((value) => localStorage.setItem('ahax:appearance:v1', value), mode);
     await page.goto('/');
     await expect(page.locator('.channel-card')).toHaveCount(2);
     await page.evaluate(() => document.fonts.ready);
     for (const width of [1180, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+      await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
       const settings = page.getByRole('dialog');
       await inspectSegmentedControls(settings.locator('.settings-pages.segmented-control'), `${mode} ${width} settings pages`);
       await inspectTypography(settings.locator('.editor-section-heading h3'), `${mode} ${width} settings groups`, 20, 7);
       await inspectTypography(settings.locator('.editor-field > label'), `${mode} ${width} field labels`, 14, 7);
       await inspectTypography(settings.locator('.editor-field input'), `${mode} ${width} field values`, 16, 7);
       await inspectTypography(settings.locator('.editor-hint'), `${mode} ${width} field explanations`, 13, 4.5);
-      await inspectControlHeight(settings.locator('.editor-field input, .editor-field .vela-select-trigger'), `${mode} ${width} form controls`, 44);
+      await inspectControlHeight(settings.locator('.editor-field input, .editor-field .ahax-select-trigger'), `${mode} ${width} form controls`, 44);
       await inspectTypography(settings.getByRole('button', { name: '保存设置', exact: true }), `${mode} ${width} primary action`, 14, 4.5);
       await inspectControlHeight(settings.getByRole('button', { name: '保存设置', exact: true }), `${mode} ${width} form action`, 44);
       await page.getByRole('button', { name: '关闭弹窗', exact: true }).click();

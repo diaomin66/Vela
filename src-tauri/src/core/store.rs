@@ -14,6 +14,9 @@ pub fn load_store(paths: &AppPaths) -> Result<Store, String> {
                 "连接记录无法解析。请保留应用数据并检查 connections.json。".to_owned()
             })?;
             let raw: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_default();
+            if super::legacy::is_default_provider(&store.settings.provider_name) {
+                store.settings.provider_name = "ahaX".into();
+            }
             for (index, profile) in store.profiles.iter_mut().enumerate() {
                 let legacy = raw
                     .get("profiles")

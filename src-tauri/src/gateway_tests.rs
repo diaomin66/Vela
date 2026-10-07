@@ -1,7 +1,7 @@
 use super::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-const TOKEN: &str = "vela-test-local-credential-01234567890123456789";
+const TOKEN: &str = "ahax-test-local-credential-01234567890123456789";
 const KEY: &str = "sk-private-channel-credential";
 const PROFILE_A: &str = "bcaa10f8-9c32-4a16-98ec-15ef8cbb23f8";
 const PROFILE_B: &str = "047d02b9-3c8c-4abc-9cb4-daf425ad7b78";
@@ -106,7 +106,7 @@ async fn models_and_health_require_local_auth_and_reject_browser_or_spoofed_host
         .json()
         .await
         .unwrap();
-    assert_eq!(health["service"], "Vela");
+    assert_eq!(health["service"], "ahaX");
     let response = client
         .get(url(&service, "/v1/models"))
         .bearer_auth(TOKEN)
@@ -482,7 +482,7 @@ async fn stream_handles_split_utf8_and_a_truncated_final_event_is_an_error() {
         .await
         .unwrap();
     assert!(response.contains(&format!("中文 {KEY}")));
-    assert!(response.contains("vela_upstream_stream_interrupted"));
+    assert!(response.contains("ahax_upstream_stream_interrupted"));
     service.shutdown().await;
 }
 
@@ -574,4 +574,129 @@ fn continuation_collision_and_capacity_never_cross_route_boundaries() {
     assert!(ids.entries.len() <= MAX_CONTINUATIONS);
     assert!(!ids.matches("resp_0", &a));
     assert!(ids.matches(&format!("resp_{}", MAX_CONTINUATIONS + 9), &a));
+}
+
+#[tokio::test]
+async fn legacy_and_current_aliases_use_the_real_upstream_model_and_share_continuations() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let counter = hits.clone();
+    let upstream = mock(Router::new().fallback(any(move |body: Bytes| {
+        let counter = counter.clone();
+        async move {
+            counter.fetch_add(1, Ordering::SeqCst);
+            let payload: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(payload["model"], "gpt-test");
+            json_response(
+                StatusCode::OK,
+                json!({"id":"resp_legacy", "object":"response", "model":"gpt-test"}),
+            )
+        }
+    })))
+    .await;
+    let current = format!("ahax-{}", "a".repeat(64));
+    let legacy = format!("vela-{}", "a".repeat(64));
+    let mut service = gateway(vec![route(&upstream.base, &current, PROFILE_A)]).await;
+    for alias in [&legacy, &current] {
+        let response = post(&service, alias, false).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.json::<Value>().await.unwrap()["model"],
+            alias.as_str()
+        );
+    }
+    for alias in [&legacy, &current] {
+        let response = client()
+            .post(url(&service, "/v1/responses/compact"))
+            .bearer_auth(TOKEN)
+            .json(&json!({"model":alias,"previous_response_id":"resp_legacy","input":[]}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.json::<Value>().await.unwrap()["model"],
+            alias.as_str()
+        );
+    }
+    assert_eq!(hits.load(Ordering::SeqCst), 4);
+    let response = post(&service, &format!("vela-{}", "b".repeat(64)), false)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(hits.load(Ordering::SeqCst), 4);
+    service.shutdown().await;
+}
+
+#[test]
+fn internal_aliases_cannot_be_used_as_upstream_models_or_duplicate_catalog_entries() {
+    let current = format!("ahax-{}", "a".repeat(64));
+    let legacy = format!("vela-{}", "a".repeat(64));
+    for alias in [&current, &legacy] {
+        let mut invalid = route("https://example.test/v1", "route-a", PROFILE_A);
+        invalid.upstream_model = alias.clone();
+        assert!(validate_catalog(&GatewayCatalog {
+            entries: vec![invalid]
+        })
+        .is_err());
+    }
+    assert!(validate_catalog(&GatewayCatalog {
+        entries: vec![
+            route("https://example.test/v1", &current, PROFILE_A),
+            route("https://example.test/v1", &legacy, PROFILE_B),
+        ]
+    })
+    .is_err());
+}
+
+#[tokio::test]
+async fn corrupted_runtime_catalog_is_blocked_before_credentials_or_upstream_are_used() {
+    let reads = Arc::new(AtomicUsize::new(0));
+    let counter = reads.clone();
+    let mut service = start_with_secrets(
+        GatewayCatalog {
+            entries: vec![route("https://example.test/v1", "route-a", PROFILE_A)],
+        },
+        TOKEN.into(),
+        0,
+        Arc::new(move |_| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            Ok(KEY.into())
+        }),
+    )
+    .await
+    .unwrap();
+    service.state.catalog.write().unwrap().entries[0].upstream_model =
+        format!("vela-{}", "c".repeat(64));
+    let response = post(&service, "route-a", false).send().await.unwrap();
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["error"]["code"],
+        "internal_model_cannot_be_forwarded"
+    );
+    assert_eq!(reads.load(Ordering::SeqCst), 0);
+    service.shutdown().await;
+}
+
+#[tokio::test]
+async fn renamed_catalog_entries_cannot_reassign_a_legacy_route_to_another_channel() {
+    let current = format!("ahax-{}", "a".repeat(64));
+    let legacy = format!("vela-{}", "a".repeat(64));
+    let original = route("https://example.test/v1", &legacy, PROFILE_A);
+    let mut service = gateway(vec![original.clone()]).await;
+    let mut renamed = original;
+    renamed.route_id = current;
+    service
+        .update_catalog(GatewayCatalog {
+            entries: vec![renamed.clone()],
+        })
+        .unwrap();
+    renamed.route_id = legacy;
+    renamed.profile_id = PROFILE_B.into();
+    assert!(service
+        .update_catalog(GatewayCatalog {
+            entries: vec![renamed]
+        })
+        .is_err());
+    service.shutdown().await;
 }

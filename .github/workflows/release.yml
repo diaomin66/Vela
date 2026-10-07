@@ -79,7 +79,8 @@ jobs:
           $version = $env:RELEASE_TAG.TrimStart('v')
           $brand = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).productName
           $assets = @("release/${brand}_${version}_x64-setup.exe", "release/${brand}_${version}_x64-setup.exe.sig", 'release/latest.json', "release/SHA256SUMS-${version}.txt")
-          gh release create $env:RELEASE_TAG @assets --repo $env:RELEASE_REPOSITORY --verify-tag --title "$brand $version" --notes-file "docs/releases/$version.md" --latest
+          $title = if ($version -eq '0.14.0') { "$brand Beta 1 · $version" } else { "$brand $version" }
+          gh release create $env:RELEASE_TAG @assets --repo $env:RELEASE_REPOSITORY --verify-tag --title $title --notes-file "docs/releases/$version.md" --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

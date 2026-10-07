@@ -31,8 +31,8 @@ h3 { font-size: var(--text-title); line-height: var(--leading-tight); font-weigh
 .count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 var(--space-2); background: var(--surface); color: var(--muted); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
 .workspace-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-5); }
 .workspace-toolbar > .search-input { flex: 1; min-width: 200px; }
-.workspace-toolbar > .vela-select { width: 176px; flex: 0 0 auto; }
-.workspace-toolbar > .vela-select .vela-select-trigger { min-height: var(--control-height); height: var(--control-height); padding-block: var(--space-2); font-size: var(--text-small); }
+.workspace-toolbar > .ahax-select { width: 176px; flex: 0 0 auto; }
+.workspace-toolbar > .ahax-select .ahax-select-trigger { min-height: var(--control-height); height: var(--control-height); padding-block: var(--space-2); font-size: var(--text-small); }
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin: var(--space-8) 0 var(--space-4); }
 .section-heading h2 { font-size: var(--text-section); font-weight: var(--weight-semibold); }
 .section-description { margin-top: var(--space-1); color: var(--muted); font-size: var(--text-small); }

@@ -96,7 +96,10 @@ fn dashboard(paths: &AppPaths, gateway: GatewayView) -> Result<Dashboard, String
         catalog,
         gateway_applied,
         gateway_configured,
-        default_route_id: store.default_route_id.clone(),
+        default_route_id: store
+            .default_route_id
+            .as_deref()
+            .map(catalog::canonical_route_id),
         profiles: store.profiles,
         backups: store
             .backups
@@ -118,7 +121,18 @@ pub(super) async fn snapshot(state: &AppState) -> Result<Dashboard, String> {
             "http://127.0.0.1:{}/v1",
             status.as_ref().map(|s| s.port).unwrap_or(port)
         ),
-        error: state.gateway_error.lock().ok().and_then(|e| e.clone()),
+        error: state
+            .gateway_error
+            .lock()
+            .ok()
+            .and_then(|e| e.clone())
+            .or_else(|| {
+                state
+                    .connection_upgrade_error
+                    .lock()
+                    .ok()
+                    .and_then(|e| e.clone())
+            }),
     };
     drop(handle);
     tauri::async_runtime::spawn_blocking(move || dashboard(&paths, gateway))

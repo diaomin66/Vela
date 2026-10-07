@@ -8,10 +8,12 @@ mod changes;
 mod configuration;
 mod domain;
 mod filesystem;
+pub(crate) mod legacy;
 mod paths;
 mod profiles;
 mod repair;
 mod store;
+mod upgrade;
 
 pub(crate) use backups::{commit_config, preview_restore, restore_backup};
 pub(crate) use configuration::{
@@ -29,6 +31,7 @@ pub(crate) use profiles::{
 pub(crate) use repair::{apply_repair, preview_repair};
 pub(crate) use store::save_store;
 pub(crate) use store::{load_store, save_settings};
+pub(crate) use upgrade::upgrade_legacy_direct_connection;
 
 #[cfg(test)]
 mod tests;

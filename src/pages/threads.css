@@ -18,7 +18,7 @@
 .thread-scopes button span { font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
 .thread-search-controls { display: flex; flex: 1 1 340px; max-width: 520px; gap: var(--space-2); align-items: center; margin-left: auto; }
 .thread-search-controls > .search-input { flex: 1; min-width: 200px; }
-.thread-search-controls > .vela-select { width: 164px; }
+.thread-search-controls > .ahax-select { width: 164px; }
 .thread-library { container-type: inline-size; background: var(--surface); border: 1px solid var(--stroke-soft); border-radius: var(--radius-lg); overflow: hidden; }
 .thread-list-heading, .thread-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 148px 20px; gap: var(--space-4); align-items: center; }
 .thread-list-heading { min-height: var(--control-height); padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5); color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-medium); border-bottom: 1px solid var(--stroke-soft); }
@@ -122,7 +122,7 @@
 .thread-setting-toggle small { display: block; font-size: var(--text-caption); color: var(--muted); line-height: var(--leading-body); margin-top: 5px; }
 .thread-setting-toggle input { accent-color: var(--accent); width: 17px; height: 17px; flex-shrink: 0; cursor: pointer; }
 .thread-interval { margin: 16px 0 4px; }
-.thread-interval .vela-select-trigger { background: var(--surface); }
+.thread-interval .ahax-select-trigger { background: var(--surface); }
 .thread-sources { display: flex; flex-direction: column; gap: 13px; }
 .thread-source { border: 1px solid var(--stroke-soft); border-radius: var(--radius); padding: 18px; }
 .thread-source-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 13px; }
@@ -185,7 +185,7 @@
   .thread-search-controls { flex-wrap: wrap; gap: 10px; max-width: none; flex-basis: 100%; order: 3; }
   .thread-management-toggle { margin-left: auto; }
   .thread-search-controls > .search-input { flex-basis: 100%; }
-  .thread-search-controls > .vela-select { width: 100%; }
+  .thread-search-controls > .ahax-select { width: 100%; }
   .thread-pagination { padding: 12px; gap: 10px; flex-wrap: wrap; }
   .thread-pagination > div { margin-left: auto; gap: 10px; }
   .thread-batch-actions { flex-wrap: wrap; gap: 10px; padding: 12px; }

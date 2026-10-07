@@ -1,12 +1,12 @@
 [package]
-name = "vela"
-version = "0.13.0"
+name = "ahax"
+version = "0.14.0"
 description = "A thoughtful Windows companion for Codex connections and recovery"
 edition = "2021"
-default-run = "vela"
+default-run = "ahax"
 
 [lib]
-name = "vela_lib"
+name = "ahax_lib"
 crate-type = ["rlib"]
 
 [build-dependencies]
@@ -35,7 +35,7 @@ rusqlite = { version = "0.40.2", features = ["bundled", "backup", "serialize"] }
 zstd = "0.13"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Memory"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Memory", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 tempfile = "3"

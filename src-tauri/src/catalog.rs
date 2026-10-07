@@ -1,9 +1,13 @@
 //! The local model file follows openai/codex ModelInfo + ModelsResponse.
 //! Source checked: codex-rs/protocol/src/openai_models.rs (2026-10-03).
+mod identity;
 mod routing;
 use crate::core::{self, AppPaths, Backup, Change, ChangePreview, NativeReasoning, Profile, Store};
 use crate::gateway::{GatewayCatalog, GatewayRoute};
-pub(crate) use routing::{clear_owned_catalogs, configured_route, routing_mismatch};
+pub(crate) use identity::{canonical_route_id, is_internal_route_id, route_ids_match};
+pub(crate) use routing::{
+    clear_owned_catalogs, configured_route, routing_mismatch, upgrade_legacy_connection,
+};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -32,17 +36,13 @@ pub fn entries(profiles: &[Profile]) -> Vec<ModelCatalogEntry> {
         .flat_map(|profile| {
             profile.models.iter().map(move |model| {
                 let reasoning = crate::reasoning::capabilities(model);
-                let mut hash = Sha256::new();
-                hash.update(profile.id.as_bytes());
-                hash.update([0]);
-                hash.update(model.id.as_bytes());
                 let name = if model.alias.is_empty() {
                     profile.name.clone()
                 } else {
                     format!("{} · {}", profile.name, model.alias)
                 };
                 ModelCatalogEntry {
-                    route_id: format!("vela-{:x}", hash.finalize()),
+                    route_id: identity::route_id(&profile.id, &model.id),
                     profile_id: profile.id.clone(),
                     channel_name: profile.name.clone(),
                     model_id: model.id.clone(),
@@ -113,8 +113,11 @@ fn selected_route(store: &Store, requested: Option<&str>) -> Result<String, Stri
     let entries = entries(&store.profiles);
     let requested = requested.or(store.default_route_id.as_deref());
     if let Some(id) = requested {
-        if entries.iter().any(|e| e.route_id == id && e.enabled) {
-            return Ok(id.into());
+        if let Some(entry) = entries
+            .iter()
+            .find(|entry| route_ids_match(&entry.route_id, id) && entry.enabled)
+        {
+            return Ok(entry.route_id.clone());
         }
         if requested == store.default_route_id.as_deref() {
             return entries
@@ -141,6 +144,17 @@ pub fn render(
         .parse::<DocumentMut>()
         .map_err(|_| "配置语法损坏，请先诊断或恢复。")?;
     let provider = &store.settings.provider_name;
+    let legacy_aliases = doc
+        .get("model_providers")
+        .and_then(Item::as_table)
+        .map(|providers| {
+            providers
+                .iter()
+                .filter(|(name, item)| *name != provider && routing::managed_provider(paths, item))
+                .map(|(name, _)| name.to_owned())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
     for key in ["model_providers", "profiles"] {
         if doc.get(key).is_some_and(|i| !i.is_table()) {
             return Err("配置表格式异常，无法安全应用网关。".into());
@@ -185,14 +199,7 @@ pub fn render(
         doc["model_providers"] = Item::Table(Table::new());
     }
     if let Some(existing) = doc["model_providers"].get(provider) {
-        let managed = existing
-            .get("auth")
-            .and_then(|a| a.get("args"))
-            .and_then(Item::as_array)
-            .is_some_and(|a| {
-                a.len() == 1
-                    && a.get(0).and_then(toml_edit::Value::as_str) == Some("--gateway-credential")
-            });
+        let managed = routing::managed_provider(paths, existing);
         if !managed {
             return Err(
                 "配置中已存在同名的其他服务商，请在设置中选择不同的本机服务商名称。".into(),
@@ -220,6 +227,9 @@ pub fn render(
     auth.insert("args", value(args));
     auth.insert("timeout_ms", value(35000));
     table.insert("auth", Item::Table(auth));
+    for name in legacy_aliases {
+        doc["model_providers"][&name] = Item::Table(table.clone());
+    }
     doc["model_providers"][provider] = Item::Table(table);
     Ok(doc.to_string())
 }
@@ -285,23 +295,169 @@ pub fn apply(paths: &AppPaths, default: Option<&str>, expected: &str) -> Result<
     Ok(backup)
 }
 pub fn applied(paths: &AppPaths, store: &Store, contents: &str) -> bool {
-    // Native pickers own the current model/effort. Vela's saved default is used
+    // Native pickers own the current model/effort. The saved default is used
     // only when explicitly applying a catalog, not to invalidate native choices.
     let Some(mut actual) = contents.parse::<DocumentMut>().ok() else {
         return false;
     };
+    if !normalize_catalog_paths(&mut actual, paths, store) {
+        return false;
+    }
+    normalize_legacy_provider(&mut actual, paths, store);
     let Some(route) = normalize_native_choices(&mut actual, store) else {
         return false;
     };
-    let Ok(expected) = render(contents, paths, store, &route) else {
+    let Ok(expected) = render(&actual.to_string(), paths, store, &route) else {
         return false;
     };
-    let equivalent =
-        Some(actual.to_string()) == expected.parse::<DocumentMut>().ok().map(|d| d.to_string());
-    let current = std::fs::read(model_file(paths, store))
+    expected
+        .parse::<DocumentMut>()
         .ok()
-        .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
-    equivalent && current == Some(model_json(store))
+        .is_some_and(|expected| equivalent_table(actual.as_table(), expected.as_table()))
+}
+
+fn equivalent_table(left: &Table, right: &Table) -> bool {
+    left.len() == right.len()
+        && left.iter().all(|(key, item)| {
+            right
+                .get(key)
+                .is_some_and(|other| equivalent_item(item, other))
+        })
+}
+
+fn equivalent_item(left: &Item, right: &Item) -> bool {
+    match (left, right) {
+        (Item::None, Item::None) => true,
+        (Item::Value(left), Item::Value(right)) => equivalent_value(left, right),
+        (Item::Table(left), Item::Table(right)) => equivalent_table(left, right),
+        (Item::ArrayOfTables(left), Item::ArrayOfTables(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right.iter())
+                    .all(|(left, right)| equivalent_table(left, right))
+        }
+        _ => false,
+    }
+}
+
+fn equivalent_value(left: &toml_edit::Value, right: &toml_edit::Value) -> bool {
+    use toml_edit::Value;
+    match (left, right) {
+        (Value::String(left), Value::String(right)) => left.value() == right.value(),
+        (Value::Integer(left), Value::Integer(right)) => left.value() == right.value(),
+        (Value::Float(left), Value::Float(right)) => {
+            left.value().to_bits() == right.value().to_bits()
+        }
+        (Value::Boolean(left), Value::Boolean(right)) => left.value() == right.value(),
+        (Value::Datetime(left), Value::Datetime(right)) => left.value() == right.value(),
+        (Value::Array(left), Value::Array(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right.iter())
+                    .all(|(left, right)| equivalent_value(left, right))
+        }
+        (Value::InlineTable(left), Value::InlineTable(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(key, value)| {
+                    right
+                        .get(key)
+                        .is_some_and(|other| equivalent_value(value, other))
+                })
+        }
+        _ => false,
+    }
+}
+
+fn equivalent_catalog(path: &str, paths: &AppPaths, expected: &Value) -> bool {
+    if !routing::owns_model_catalog(paths, path) {
+        return false;
+    }
+    let mut current = match std::fs::read(path) {
+        Ok(bytes) if bytes.len() <= 64 * 1024 * 1024 => {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(value) => value,
+                Err(_) => return false,
+            }
+        }
+        _ => return false,
+    };
+    if let Some(models) = current.get_mut("models").and_then(Value::as_array_mut) {
+        for model in models {
+            if let Some(slug) = model.get("slug").and_then(Value::as_str) {
+                model["slug"] = Value::String(canonical_route_id(slug));
+            }
+        }
+    }
+    current == *expected
+}
+
+fn normalize_catalog_paths(doc: &mut DocumentMut, paths: &AppPaths, store: &Store) -> bool {
+    let expected = model_json(store);
+    let current = model_file(paths, store);
+    let selected = doc.get("profile").and_then(Item::as_str).map(str::to_owned);
+    if !doc
+        .get("model_catalog_json")
+        .and_then(Item::as_str)
+        .is_some_and(|path| equivalent_catalog(path, paths, &expected))
+    {
+        return false;
+    }
+    doc["model_catalog_json"] = value(current.to_string_lossy().as_ref());
+    if let Some(table) = selected
+        .as_deref()
+        .and_then(|name| doc.get_mut("profiles")?.get_mut(name)?.as_table_mut())
+    {
+        if let Some(path) = table.get("model_catalog_json") {
+            if !path
+                .as_str()
+                .is_some_and(|path| equivalent_catalog(path, paths, &expected))
+            {
+                return false;
+            }
+            table["model_catalog_json"] = value(current.to_string_lossy().as_ref());
+        }
+    }
+    true
+}
+
+fn normalize_legacy_provider(doc: &mut DocumentMut, paths: &AppPaths, store: &Store) {
+    if store.settings.provider_name != "ahaX" {
+        return;
+    }
+    let Some(legacy) = doc
+        .get("model_providers")
+        .and_then(|providers| providers.get("Vela"))
+        .filter(|provider| routing::managed_provider(paths, provider))
+        .cloned()
+    else {
+        return;
+    };
+    if doc
+        .get("model_providers")
+        .and_then(|providers| providers.get("ahaX"))
+        .is_some()
+    {
+        return;
+    }
+    let mut provider = legacy;
+    provider["name"] = value("ahaX");
+    provider["auth"]["command"] = value(paths.helper.to_string_lossy().as_ref());
+    doc["model_providers"]["Vela"] = provider.clone();
+    doc["model_providers"]["ahaX"] = provider;
+    if doc.get("model_provider").and_then(Item::as_str) == Some("Vela") {
+        doc["model_provider"] = value("ahaX");
+    }
+    let selected = doc.get("profile").and_then(Item::as_str).map(str::to_owned);
+    if let Some(table) = selected
+        .as_deref()
+        .and_then(|name| doc.get_mut("profiles")?.get_mut(name)?.as_table_mut())
+    {
+        if table.get("model_provider").and_then(Item::as_str) == Some("Vela") {
+            table["model_provider"] = value("ahaX");
+        }
+    }
 }
 
 fn config_string(item: Option<&Item>) -> Result<Option<&str>, ()> {
@@ -339,7 +495,7 @@ fn normalize_native_choices(doc: &mut DocumentMut, store: &Store) -> Option<Stri
     for id in [root_model, selected_model].into_iter().flatten() {
         if !entries
             .iter()
-            .any(|entry| entry.route_id == id && entry.enabled)
+            .any(|entry| route_ids_match(&entry.route_id, id) && entry.enabled)
         {
             return None;
         }
@@ -355,14 +511,16 @@ fn normalize_native_choices(doc: &mut DocumentMut, store: &Store) -> Option<Stri
     let route = selected_model.or(root_model)?;
     let effective = entries
         .iter()
-        .find(|entry| entry.route_id == route && entry.enabled)?;
+        .find(|entry| route_ids_match(&entry.route_id, route) && entry.enabled)?;
     if let Some(effort) = root_effort {
         if !crate::reasoning::EFFORTS.contains(&effort) {
             return None;
         }
-        if let Some(root) =
-            root_model.and_then(|id| entries.iter().find(|entry| entry.route_id == id))
-        {
+        if let Some(root) = root_model.and_then(|id| {
+            entries
+                .iter()
+                .find(|entry| route_ids_match(&entry.route_id, id))
+        }) {
             if !supports_effort(root, effort) {
                 return None;
             }
@@ -374,7 +532,7 @@ fn normalize_native_choices(doc: &mut DocumentMut, store: &Store) -> Option<Stri
     {
         return None;
     }
-    let route = route.to_owned();
+    let route = effective.route_id.clone();
     doc["model"] = value(&route);
     doc["model_provider"] = value(&store.settings.provider_name);
     doc.remove("model_reasoning_effort");
@@ -499,11 +657,13 @@ pub fn restored_store(
         .and_then(Item::as_str)
         .map(PathBuf::from)
         .ok_or("备份模型目录缺失。")?;
-    let root = paths
-        .data
-        .join("catalogs")
-        .canonicalize()
-        .map_err(|_| "模型目录已丢失，请重新同步。")?;
+    if !routing::owns_model_catalog(paths, &target.to_string_lossy()) {
+        return Err("备份引用了受控目录之外的模型文件。".into());
+    }
+    let root = target
+        .parent()
+        .and_then(|parent| parent.canonicalize().ok())
+        .ok_or("模型目录已丢失，请重新同步。")?;
     let resolved = target
         .canonicalize()
         .map_err(|_| "历史模型目录已丢失，请重新同步。")?;
@@ -527,22 +687,32 @@ pub fn restored_store(
             .get("slug")
             .and_then(Value::as_str)
             .ok_or("历史模型缺少 ID。")?;
-        if !known.iter().any(|entry| entry.route_id == id) {
+        if !known
+            .iter()
+            .any(|entry| route_ids_match(&entry.route_id, id))
+        {
             return Err("历史模型目录引用了已删除的渠道或模型，请选择其他备份。".into());
         }
-        historical_reasoning.insert(id.to_owned(), historical_capabilities(model)?);
-        ids.insert(id.to_owned());
+        let identity = canonical_route_id(id);
+        if !ids.insert(identity.clone()) {
+            return Err("历史模型目录含重复的渠道模型。".into());
+        }
+        historical_reasoning.insert(identity, historical_capabilities(model)?);
     }
-    if !ids.contains(route) {
+    if !ids.contains(&canonical_route_id(route)) {
         return Err("历史默认模型已不在目录中。".into());
     }
     let mut restored: Store =
         serde_json::from_value(serde_json::to_value(current).map_err(|_| "无法读取渠道记录。")?)
             .map_err(|_| "无法读取渠道记录。")?;
-    restored.settings.provider_name = provider.into();
+    restored.settings.provider_name = if provider == "Vela" {
+        "ahaX".into()
+    } else {
+        provider.into()
+    };
     restored.settings.gateway_port = port;
     restored.settings_revision = uuid::Uuid::new_v4().to_string();
-    restored.default_route_id = Some(route.into());
+    restored.default_route_id = Some(canonical_route_id(route));
     for profile in &mut restored.profiles {
         for model in &mut profile.models {
             let entry = known
@@ -694,7 +864,7 @@ mod tests {
             .unwrap()
             .parse::<DocumentMut>()
             .unwrap();
-        let provider = &config["model_providers"]["Vela"];
+        let provider = &config["model_providers"]["ahaX"];
         assert_eq!(provider["auth"]["timeout_ms"].as_integer(), Some(35000));
         assert_eq!(provider["request_max_retries"].as_integer(), Some(0));
         assert_eq!(provider["stream_max_retries"].as_integer(), Some(0));
@@ -740,7 +910,7 @@ mod tests {
         };
         let store = sample();
         assert!(render(
-            "[model_providers.Vela]\nname=\"User service\"",
+            "[model_providers.ahaX]\nname=\"User service\"",
             &paths,
             &store,
             &entries(&store.profiles)[0].route_id
@@ -1023,7 +1193,7 @@ mod tests {
     }
 
     #[test]
-    fn native_model_switch_uses_its_own_effort_without_changing_vela_default() {
+    fn native_model_switch_uses_its_own_effort_without_changing_saved_default() {
         let dir = tempfile::tempdir().unwrap();
         let paths = AppPaths {
             data: dir.path().join("data"),
@@ -1140,10 +1310,10 @@ mod tests {
             );
         }
         let mut native = original.parse::<DocumentMut>().unwrap();
-        native["model_providers"]["Vela"]["base_url"] = value("http://127.0.0.1:19999/v1");
+        native["model_providers"]["ahaX"]["base_url"] = value("http://127.0.0.1:19999/v1");
         assert!(!applied(&paths, &store, &native.to_string()));
         let mut native = original.parse::<DocumentMut>().unwrap();
-        native["model_providers"]["Vela"]["auth"]["command"] = value("wrong-helper");
+        native["model_providers"]["ahaX"]["auth"]["command"] = value("wrong-helper");
         assert!(!applied(&paths, &store, &native.to_string()));
         let mut native = original.parse::<DocumentMut>().unwrap();
         native["model_provider"] = value("Other");
@@ -1167,5 +1337,55 @@ mod tests {
         assert!(applied(&paths, &store, &native.to_string()));
         native["model_reasoning_effort"] = value("low");
         assert!(!applied(&paths, &store, &native.to_string()));
+    }
+
+    #[test]
+    fn legacy_defaults_and_configured_models_resolve_without_falling_back_to_another_channel() {
+        let mut store = disjoint_reasoning_models();
+        let expected = entries(&store.profiles)[1].route_id.clone();
+        let legacy = expected.replacen("ahax-", "vela-", 1);
+        store.default_route_id = Some(legacy.clone());
+        assert_eq!(selected_route(&store, None).unwrap(), expected);
+        assert_eq!(selected_route(&store, Some(&legacy)).unwrap(), expected);
+        assert_eq!(
+            configured_route(&store, &format!("model=\"{legacy}\"")),
+            Some(expected)
+        );
+    }
+
+    #[test]
+    fn historical_catalog_aliases_and_provider_remain_applied_without_rewriting_the_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let paths = AppPaths {
+            data: directory.path().join("data"),
+            config: directory.path().join("config"),
+            helper: directory.path().join("ahax.exe"),
+            locations: None,
+        };
+        let mut store = sample();
+        store.settings.provider_name = "Vela".into();
+        let canonical = entries(&store.profiles)[0].route_id.clone();
+        let legacy = canonical.replacen("ahax-", "vela-", 1);
+        let config = render("", &paths, &store, &legacy).unwrap();
+        let mut old_catalog = model_json(&store);
+        old_catalog["models"][0]["slug"] = json!(legacy);
+        let bytes = serde_json::to_vec_pretty(&old_catalog).unwrap();
+        core::atomic_write(&model_file(&paths, &store), &bytes).unwrap();
+        store.settings.provider_name = "ahaX".into();
+        assert!(applied(&paths, &store, &config));
+        assert_eq!(std::fs::read(model_file(&paths, &store)).unwrap(), bytes);
+        let updated = render(&config, &paths, &store, &canonical)
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+        assert_eq!(updated["model_provider"].as_str(), Some("ahaX"));
+        assert_eq!(
+            updated["model_providers"]["Vela"]["name"].as_str(),
+            Some("ahaX")
+        );
+        assert_eq!(
+            updated["model_providers"]["Vela"]["auth"]["command"].as_str(),
+            Some(paths.helper.to_string_lossy().as_ref())
+        );
     }
 }

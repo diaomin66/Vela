@@ -13,7 +13,7 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 pub fn provider_id(id: &str) -> String {
-    format!("vela_{}", id.replace('-', ""))
+    format!("ahax_{}", id.replace('-', ""))
 }
 pub fn active_profile_id(contents: &str, profiles: &[Profile]) -> Option<String> {
     let document = contents.parse::<DocumentMut>().ok()?;
@@ -31,7 +31,9 @@ pub fn active_profile_id(contents: &str, profiles: &[Profile]) -> Option<String>
         .as_str()?;
     profiles
         .iter()
-        .find(|p| provider_id(&p.id) == provider)
+        .find(|p| {
+            provider_id(&p.id) == provider || super::legacy::direct_provider(&p.id) == provider
+        })
         .map(|p| p.id.clone())
 }
 pub fn profile_matches_configuration(contents: &str, profile: &Profile, helper: &Path) -> bool {
@@ -46,13 +48,30 @@ pub fn profile_matches_configuration(contents: &str, profile: &Profile, helper: 
         .and_then(|p| p.get("model"))
         .or_else(|| doc.get("model"))
         .and_then(Item::as_str);
-    let provider_name = provider_id(&profile.id);
+    let actual_provider = selected
+        .and_then(|item| item.get("model_provider"))
+        .or_else(|| doc.get("model_provider"))
+        .and_then(Item::as_str);
+    let provider_name = match actual_provider {
+        Some(value)
+            if value == provider_id(&profile.id)
+                || value == super::legacy::direct_provider(&profile.id) =>
+        {
+            value
+        }
+        _ => return false,
+    };
     let Some(provider) = doc
         .get("model_providers")
-        .and_then(|p| p.get(&provider_name))
+        .and_then(|p| p.get(provider_name))
     else {
         return false;
     };
+    actual_model == Some(profile.model.as_str())
+        && profile_matches_provider(provider, profile, helper)
+}
+
+pub(super) fn profile_matches_provider(provider: &Item, profile: &Profile, helper: &Path) -> bool {
     let auth = provider.get("auth");
     let command_matches = auth.and_then(|a| a.get("command")).and_then(Item::as_str)
         == Some(helper.to_string_lossy().as_ref());
@@ -64,8 +83,7 @@ pub fn profile_matches_configuration(contents: &str, profile: &Profile, helper: 
                 && args.get(0).and_then(toml_edit::Value::as_str) == Some("--credential")
                 && args.get(1).and_then(toml_edit::Value::as_str) == Some(profile.id.as_str())
         });
-    actual_model == Some(profile.model.as_str())
-        && provider.get("base_url").and_then(Item::as_str) == Some(profile.base_url.as_str())
+    provider.get("base_url").and_then(Item::as_str) == Some(profile.base_url.as_str())
         && provider.get("wire_api").and_then(Item::as_str) == Some("responses")
         && [
             "env_key",
@@ -190,7 +208,7 @@ pub fn preview_profile(paths: &AppPaths, id: &str) -> Result<ChangePreview, Stri
     let current = read_config(paths)?;
     let contents = config_text(&current)?;
     let proposed = Zeroizing::new(render_profile(contents, &profile, paths)?);
-    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "更新直连模型与服务商，清理当前配置中由 AhaX 生成的模型目录。应用前自动备份；应用后请彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
+    Ok(ChangePreview { id: Uuid::new_v4().to_string(), title: format!("使用 {}", profile.name), summary: "更新直连模型与服务商，清理当前配置中由 ahaX 生成的模型目录。应用前自动备份；应用后请彻底退出并重新打开 Codex，再新建会话，旧会话可能保留原服务商。".into(), changes: changes(contents, &proposed), expected_hash: token(raw(&current), Some(proposed.as_bytes())), profile_id: Some(id.into()), backup_id: None })
 }
 pub fn apply_profile(paths: &AppPaths, id: &str, expected_hash: &str) -> Result<Backup, String> {
     let _lock = paths.lock()?;

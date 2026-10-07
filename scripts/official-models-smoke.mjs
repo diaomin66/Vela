@@ -1,5 +1,5 @@
 // Exercise the real Codex app-server with an isolated home and a local, unbilled fixture.
-// No installed Vela state, Windows credentials, user Codex config, or remote API is used.
+// No installed ahaX state, Windows credentials, user Codex config, or remote API is used.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -9,14 +9,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const executable = path.resolve(process.argv[2] ?? process.env.VELA_CODEX_SMOKE_EXECUTABLE ?? 'C:/nvm4w/nodejs/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe');
+const executable = path.resolve(process.argv[2] ?? process.env.AHAX_CODEX_SMOKE_EXECUTABLE ?? 'C:/nvm4w/nodejs/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe');
 const runDirectory = path.join(root, 'artifacts', `official-codex-smoke-${Date.now()}`);
 const codexHome = path.join(runDirectory, 'codex-home');
 const workspace = path.join(runDirectory, 'workspace');
 await mkdir(codexHome, { recursive: true });
 await mkdir(workspace, { recursive: true });
 
-const report = { executable, runDirectory, fixtureKind: 'Schema-equivalent Vela catalog and provider fixture; local credential helper and upstream, not an end-to-end Vela process test.', version: '', passed: false, models: [], requests: [], helperInvocations: 0 };
+const report = { executable, runDirectory, fixtureKind: 'Schema-equivalent ahaX catalog and provider fixture; local credential helper and upstream, not an end-to-end ahaX process test.', version: '', passed: false, models: [], requests: [], helperInvocations: 0 };
 const environment = { ...process.env, CODEX_HOME: codexHome };
 for (const key of Object.keys(environment)) {
   if (/(?:API[_-]?KEY|TOKEN|PASSWORD|SECRET)/i.test(key)) delete environment[key];
@@ -26,7 +26,7 @@ const version = spawnSync(executable, ['--version'], { env: environment, encodin
 if (version.error || version.status !== 0) throw version.error ?? new Error('Cannot run the selected Codex binary.');
 report.version = version.stdout.trim();
 
-const localToken = `vela-smoke-${randomUUID()}`;
+const localToken = `ahax-smoke-${randomUUID()}`;
 const helper = path.join(runDirectory, 'fixture-credential.cjs');
 const helperLog = path.join(runDirectory, 'credential-invocations.txt');
 await writeFile(helper, `require('fs').appendFileSync(${JSON.stringify(helperLog)}, 'invoked\\n');process.stdout.write(${JSON.stringify(localToken)});\n`);
@@ -43,10 +43,10 @@ const channels = [
 // Test the complete native Ultra runtime against the exact supported release.
 // Accepting its enum alone does not prove proactive multi-agent support.
 const versionParts = report.version.match(/(\d+)\.(\d+)\.(\d+)/);
-assert.ok(versionParts && (Number(versionParts[1]) > 0 || Number(versionParts[2]) >= 160), 'This complete native Ultra fixture requires Codex >=0.160. Pass an isolated official binary as argv[2] or VELA_CODEX_SMOKE_EXECUTABLE.');
+assert.ok(versionParts && (Number(versionParts[1]) > 0 || Number(versionParts[2]) >= 160), 'This complete native Ultra fixture requires Codex >=0.160. Pass an isolated official binary as argv[2] or AHAX_CODEX_SMOKE_EXECUTABLE.');
 const instructions = await readFile(path.join(root, 'src-tauri/resources/official-codex-fallback-prompt.md'), 'utf8');
 const models = channels.map((channel, index) => ({
-  slug: `vela-${createHash('sha256').update(`${channel.id}\0${channel.model}`).digest('hex')}`,
+  slug: `ahax-${createHash('sha256').update(`${channel.id}\0${channel.model}`).digest('hex')}`,
   display_name: channel.label,
   description: `${channel.id} · ${channel.model}`,
   default_reasoning_level: channel.defaultEffort,
@@ -116,18 +116,18 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
 const quote = value => JSON.stringify(value);
 await writeFile(path.join(codexHome, 'config.toml'), [
-  `model_provider = "Vela"`,
+  `model_provider = "ahaX"`,
   `model = ${quote(models[0].slug)}`,
   `model_catalog_json = ${quote(catalogPath)}`,
   `[analytics]`, `enabled = false`,
-  `[model_providers.Vela]`,
-  `name = "Vela"`,
+  `[model_providers.ahaX]`,
+  `name = "ahaX"`,
   `base_url = "http://127.0.0.1:${port}/v1"`,
   `wire_api = "responses"`,
   `supports_websockets = false`,
   `request_max_retries = 0`,
   `stream_max_retries = 0`,
-  `[model_providers.Vela.auth]`,
+  `[model_providers.ahaX.auth]`,
   `command = ${quote(process.execPath)}`,
   `args = [${quote(helper)}]`,
   `timeout_ms = 35000`,
@@ -177,7 +177,7 @@ async function completedTurn(id) {
 }
 
 try {
-  report.initialize = await rpc('initialize', { clientInfo: { name: 'vela_native_smoke', title: 'Vela native integration smoke', version: '0.5.0' }, capabilities: { experimentalApi: true } });
+  report.initialize = await rpc('initialize', { clientInfo: { name: 'ahax_native_smoke', title: 'ahaX native integration smoke', version: '0.5.0' }, capabilities: { experimentalApi: true } });
   child.stdin.write(`${JSON.stringify({ method: 'initialized', params: {} })}\n`);
   const available = await rpc('model/list', { limit: 100, includeHidden: true });
   report.models = available.data.map(model => ({ id: model.id, model: model.model, displayName: model.displayName, supportedReasoningEfforts: model.supportedReasoningEfforts, defaultReasoningEffort: model.defaultReasoningEffort }));
@@ -195,7 +195,7 @@ try {
     // First prove that no global fixed effort is needed. Then exercise every
     // effort exposed by the native picker, including the highest setting.
     for (const effort of [undefined, ...channels[index].efforts]) {
-      const thread = await rpc('thread/start', { model: model.slug, modelProvider: 'Vela', cwd: workspace, approvalPolicy: 'never', sandbox: 'read-only', ephemeral: true });
+      const thread = await rpc('thread/start', { model: model.slug, modelProvider: 'ahaX', cwd: workspace, approvalPolicy: 'never', sandbox: 'read-only', ephemeral: true });
       const turn = await rpc('turn/start', { threadId: thread.thread.id, effort, input: [{ type: 'text', text: 'Reply SMOKE_OK without tools.' }] });
       const finished = await completedTurn(turn.turn.id);
       assert.equal(finished.status, 'completed', JSON.stringify(finished));

@@ -1,9 +1,35 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const settings = (page: Page) => page.getByRole('button', { name: 'AhaX 设置', exact: true });
+const settings = (page: Page) => page.getByRole('button', { name: 'ahaX 设置', exact: true });
 const theme = (page: Page) => page.locator('html');
 const navigation = (page: Page, label: string) => page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: label, exact: true });
+
+test('upgrading preserves the saved appearance and retires the legacy storage key', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('appearance-migration-fixture')) {
+      localStorage.setItem('vela:appearance:v1', 'dark');
+      sessionStorage.setItem('appearance-migration-fixture', '1');
+    }
+  });
+  await page.goto('/');
+  await expect(theme(page)).toHaveAttribute('data-theme', 'dark');
+  expect(await page.evaluate(() => ({ current: localStorage.getItem('ahax:appearance:v1'), previous: localStorage.getItem('vela:appearance:v1') }))).toEqual({ current: 'dark', previous: null });
+  await page.getByRole('button', { name: '切换为浅色外观', exact: true }).click();
+  await page.reload();
+  await expect(theme(page)).toHaveAttribute('data-theme', 'light');
+});
+
+test('current appearance takes precedence over legacy settings', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('ahax:appearance:v1', 'light');
+    localStorage.setItem('vela:appearance:v1', 'dark');
+  });
+  await page.goto('/');
+  await expect(theme(page)).toHaveAttribute('data-theme', 'light');
+  expect(await page.evaluate(() => localStorage.getItem('vela:appearance:v1'))).toBeNull();
+});
 
 test.beforeEach(async ({ page, request }) => {
   if (process.env.VELA_E2E_LOCAL_PROXY === '1') await page.route('http://127.0.0.1:1420/**', async (route) => {
@@ -74,7 +100,7 @@ test('header appearance shortcuts persist and stay in sync with settings radios'
 for (const mode of ['light', 'dark'] as const) {
   test(`${mode} surfaces remain accessible across navigation and narrow layouts`, async ({ page }) => {
     test.setTimeout(90_000);
-    await page.addInitScript((value) => localStorage.setItem('vela:appearance:v1', value), mode);
+    await page.addInitScript((value) => localStorage.setItem('ahax:appearance:v1', value), mode);
     await page.goto('/?evaluationDemo=gallery');
     await expect(page.getByRole('heading', { name: '渠道管理', exact: true })).toBeVisible();
     await expect(theme(page)).toHaveAttribute('data-theme', mode);
@@ -125,7 +151,7 @@ for (const mode of ['light', 'dark'] as const) {
 
 test('saved appearance applies before the application module executes', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.addInitScript(() => localStorage.setItem('vela:appearance:v1', 'dark'));
+  await page.addInitScript(() => localStorage.setItem('ahax:appearance:v1', 'dark'));
   await page.route((url) => url.pathname === '/src/main.tsx', (route) => route.abort());
   await page.goto('/');
   await expect(theme(page)).toHaveAttribute('data-theme', 'dark');

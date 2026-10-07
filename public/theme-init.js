@@ -1,8 +1,15 @@
 (() => {
   let mode = 'system';
   try {
-    const saved = localStorage.getItem('vela:appearance:v1');
-    if (saved === 'light' || saved === 'dark') mode = saved;
+    const key = 'ahax:appearance:v1';
+    const legacyKey = 'vela:appearance:v1';
+    const current = localStorage.getItem(key);
+    const saved = current ?? localStorage.getItem(legacyKey);
+    if (saved === 'light' || saved === 'dark' || saved === 'system') {
+      mode = saved;
+      if (current === null) localStorage.setItem(key, saved);
+      localStorage.removeItem(legacyKey);
+    }
   } catch {}
   const theme = mode === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' : mode;
   document.documentElement.dataset.themeMode = mode;

@@ -91,7 +91,7 @@ pub fn capabilities(model: &ChannelModel) -> Capabilities {
                 .filter(|value| efforts.iter().any(|effort| effort == value))
         })
         // Native model/list treats a null default as `none`. For models which
-        // do not support none, choose a clearly documented Vela compatibility
+        // do not support none, choose a clearly documented ahaX compatibility
         // default; do not label this as a verified API server default.
         .or_else(|| {
             efforts

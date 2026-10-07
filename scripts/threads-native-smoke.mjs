@@ -10,9 +10,9 @@ import { chromium } from '@playwright/test';
 // Only synthetic homes and an explicitly built executable are used. This never
 // opens a real thread, launches an installer, or reads account credentials.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
+const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/ahax.exe');
 const expectedVersion = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
-assert.equal(path.basename(executable).toLowerCase(), 'vela.exe');
+assert.equal(path.basename(executable).toLowerCase(), 'ahax.exe');
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'threads-native-'));
 const home = path.join(sandbox, 'home');
@@ -25,7 +25,7 @@ const proxy = createServer((_, response) => { response.writeHead(503); response.
 await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
 const proxyUrl = `http://127.0.0.1:${proxy.address().port}`;
 const environment = {
-  ...process.env, CODEX_HOME: home, VELA_DATA_DIR: data,
+  ...process.env, CODEX_HOME: home, AHAX_DATA_DIR: data,
   HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, ALL_PROXY: proxyUrl,
   http_proxy: proxyUrl, https_proxy: proxyUrl, all_proxy: proxyUrl,
   NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost',
@@ -142,7 +142,7 @@ try {
   assert.equal((await list()).total, 3);
   assert.equal(await readFile(path.join(home, 'config.toml'), 'utf8'), config);
   for (const item of [active, archived, partial]) assert.equal(digest(await readFile(item.file)), item.hash);
-  check('Missing AhaX inventory rebuilds from encrypted snapshots without changing configuration or source history');
+  check('Missing ahaX inventory rebuilds from encrypted snapshots without changing configuration or source history');
 
   const blockedDeletion = await invoke('preview_thread_deletion', { keys: [pending.key] });
   assert.equal(blockedDeletion.items.length, 1);

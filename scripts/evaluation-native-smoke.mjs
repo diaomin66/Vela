@@ -8,15 +8,15 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 
 // Run only an explicitly built application. Never launch an installer, inspect
-// existing Vela data, or read a real Codex configuration / Windows credential.
+// existing ahaX data, or read a real Codex configuration / Windows credential.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
-assert.equal(path.basename(executable).toLowerCase(), 'vela.exe', 'Pass the built AhaX application, never an installer.');
+const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/ahax.exe');
+assert.equal(path.basename(executable).toLowerCase(), 'ahax.exe', 'Pass the built ahaX application, never an installer.');
 const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'evaluation-native-smoke-'));
 const codexHome = path.join(sandbox, 'codex');
-const dataDirectory = path.join(sandbox, 'vela-data');
+const dataDirectory = path.join(sandbox, 'ahax-data');
 const configPath = path.join(codexHome, 'config.toml');
 const evaluationIndex = path.join(dataDirectory, 'evaluations', 'index.json');
 const originalConfig = '# Isolated evaluation smoke only.\nmodel = "untouched-model"\n';
@@ -237,7 +237,7 @@ async function stopApplication() {
   child = undefined;
   if (instance && instance.exitCode === null) {
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Isolated Vela did not exit.')), 10000);
+      const timeout = setTimeout(() => reject(new Error('Isolated ahaX did not exit.')), 10000);
       instance.once('exit', () => { clearTimeout(timeout); resolve(); });
       instance.kill();
     });
@@ -282,7 +282,7 @@ async function startApplication(background = false) {
 async function deleteSyntheticCredential(id) {
   assert(uuid.test(id));
   await new Promise((resolve, reject) => {
-    const command = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:Vela/connection/${id}`], {
+    const command = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:ahaX/connection/${id}`], {
       windowsHide: true, stdio: 'ignore', env: environment,
     });
     command.once('error', reject);
@@ -359,12 +359,12 @@ try {
   }
   const gatewayPort = await unusedPort();
   await writeFile(path.join(dataDirectory, 'connections.json'), JSON.stringify({
-    profiles: [], backups: [], settings: { providerName: 'Vela', gatewayPort, autoRefresh: false, refreshMinutes: 15 },
+    profiles: [], backups: [], settings: { providerName: 'ahaX', gatewayPort, autoRefresh: false, refreshMinutes: 15 },
   }));
   environment = {
     ...process.env,
     PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`,
-    CODEX_HOME: codexHome, VELA_DATA_DIR: dataDirectory,
+    CODEX_HOME: codexHome, AHAX_DATA_DIR: dataDirectory,
     HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, ALL_PROXY: proxyUrl,
     http_proxy: proxyUrl, https_proxy: proxyUrl, all_proxy: proxyUrl,
     NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost',

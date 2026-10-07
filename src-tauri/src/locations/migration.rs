@@ -14,6 +14,116 @@ use std::{
 const JOURNAL: &str = "location-migration.json";
 const MAX_ENTRIES: usize = 500_000;
 
+pub(crate) fn copy_brand_data(source: &Path, target: &Path) -> Result<(), String> {
+    let mut pending = vec![source.to_path_buf()];
+    let mut files = Vec::new();
+    let mut locks = Vec::new();
+    let mut directories = Vec::new();
+    while let Some(directory) = pending.pop() {
+        validation::guard(&directory, false)?;
+        directories.push((directory.clone(), directory_entries(&directory)?));
+        let relative = directory
+            .strip_prefix(source)
+            .map_err(|_| "旧数据目录范围无效。")?;
+        fs::create_dir_all(target.join(relative)).map_err(|_| "无法创建升级副本目录。")?;
+        for entry in fs::read_dir(&directory).map_err(|_| "无法完整读取旧版本数据目录。")?
+        {
+            let entry = entry.map_err(|_| "旧版本目录包含无法读取的项目。")?;
+            let path = entry.path();
+            validation::guard(&path, false)?;
+            let metadata = fs::symlink_metadata(&path).map_err(|_| "无法验证旧版数据项目。")?;
+            if metadata.is_dir() {
+                pending.push(path);
+            } else if metadata.is_file() {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                if name == "changes.lock" {
+                    continue;
+                }
+                if name == "catalog.lock" {
+                    let file = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open(&path)
+                        .map_err(|_| "无法锁定旧线程索引。")?;
+                    file.try_lock_exclusive()
+                        .map_err(|_| "旧线程索引仍在使用，请退出旧版本后重试。")?;
+                    locks.push(file);
+                    continue;
+                }
+                if sqlite_sidecar(&name, &directory) {
+                    continue;
+                }
+                let destination = target.join(
+                    path.strip_prefix(source)
+                        .map_err(|_| "旧数据文件范围无效。")?,
+                );
+                let sqlite = matches!(
+                    path.extension().and_then(|extension| extension.to_str()),
+                    Some("sqlite3" | "sqlite" | "db")
+                );
+                files.push(Entry {
+                    source: path,
+                    target: destination,
+                    bytes: metadata.len(),
+                    sqlite,
+                });
+            } else {
+                return Err("旧数据包含不支持的文件类型，未切换数据位置。".into());
+            }
+            if files.len() + pending.len() > MAX_ENTRIES {
+                return Err("旧数据文件数量超过自动迁移范围，原数据保持不变。".into());
+            }
+        }
+    }
+    let before: Vec<Option<String>> = files
+        .iter()
+        .map(|entry| {
+            if entry.sqlite {
+                Ok(None)
+            } else {
+                hash_file(&entry.source).map(Some)
+            }
+        })
+        .collect::<Result<_, _>>()?;
+    for entry in &files {
+        copy(entry)?;
+    }
+    for (entry, expected) in files.iter().zip(before) {
+        if let Some(expected) = expected {
+            if hash_file(&entry.source)? != expected {
+                return Err("升级期间旧数据发生变化，未切换数据位置，请退出旧版本后重试。".into());
+            }
+        }
+    }
+    for (path, expected) in directories {
+        if directory_entries(&path)? != expected {
+            return Err("升级期间旧数据目录发生变化，未切换数据位置。".into());
+        }
+    }
+    Ok(())
+}
+
+fn directory_entries(directory: &Path) -> Result<Vec<std::ffi::OsString>, String> {
+    let mut entries = fs::read_dir(directory)
+        .map_err(|_| "无法验证旧数据目录。")?
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "无法完整验证旧数据目录。")?;
+    entries.retain(|name| !sqlite_sidecar(&name.to_string_lossy(), directory));
+    entries.sort();
+    Ok(entries)
+}
+
+fn sqlite_sidecar(name: &str, directory: &Path) -> bool {
+    ["-wal", "-shm", "-journal"].iter().any(|suffix| {
+        name.strip_suffix(*suffix).is_some_and(|base| {
+            (base.ends_with(".sqlite3") || base.ends_with(".sqlite") || base.ends_with(".db"))
+                && directory.join(base).is_file()
+        })
+    })
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Backups,

@@ -6,18 +6,18 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
 
-// This test starts only the explicitly named Vela executable. All configuration,
+// This test starts only the explicitly named ahaX executable. All configuration,
 // WebView2 state, channel keys, and HTTP services are generated for this run.
 const root = process.cwd();
 const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
+const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/ahax.exe');
 await mkdir(path.join(root, 'artifacts', 'screenshots'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'native-smoke-v2-'));
 const codexHome = path.join(sandbox, 'codex');
-const dataDirectory = path.join(sandbox, 'vela-data');
+const dataDirectory = path.join(sandbox, 'ahax-data');
 await mkdir(codexHome);
 const configPath = path.join(codexHome, 'config.toml');
-const original = '# Vela v0.3 native smoke only.\nmodel = "original-model"\nprofile = "work"\nmodel_reasoning_effort = "minimal"\nmodel_reasoning_summary = "detailed"\nmodel_supports_reasoning_summaries = true\n\n[features]\nexample = true\n\n[profiles.work]\nmodel_reasoning_effort = "xhigh"\nmodel_reasoning_summary = "auto"\nmodel_supports_reasoning_summaries = false\nsandbox_mode = "read-only"\n\n[profiles.spare]\nmodel_reasoning_effort = "high"\n';
+const original = '# ahaX v0.3 native smoke only.\nmodel = "original-model"\nprofile = "work"\nmodel_reasoning_effort = "minimal"\nmodel_reasoning_summary = "detailed"\nmodel_supports_reasoning_summaries = true\n\n[features]\nexample = true\n\n[profiles.work]\nmodel_reasoning_effort = "xhigh"\nmodel_reasoning_summary = "auto"\nmodel_supports_reasoning_summaries = false\nsandbox_mode = "read-only"\n\n[profiles.spare]\nmodel_reasoning_effort = "high"\n';
 await writeFile(configPath, original);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -103,7 +103,7 @@ const environment = {
   ...process.env,
   PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`,
   CODEX_HOME: codexHome,
-  VELA_DATA_DIR: dataDirectory,
+  AHAX_DATA_DIR: dataDirectory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'),
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --no-proxy-server`,
   HTTP_PROXY: '', HTTPS_PROXY: '', ALL_PROXY: '', NO_PROXY: '127.0.0.1,localhost',
@@ -139,12 +139,12 @@ async function reopenViaSecondInstance() {
     cwd: path.dirname(executable), windowsHide: true, stdio: 'ignore', env: environment,
   });
   await new Promise((resolve, reject) => {
-    const deadline = setTimeout(() => reject(new Error('A second AhaX process did not exit after waking the original window.')), 10000);
+    const deadline = setTimeout(() => reject(new Error('A second ahaX process did not exit after waking the original window.')), 10000);
     secondInstance.once('error', (error) => { clearTimeout(deadline); reject(error); });
     secondInstance.once('close', (code) => {
       clearTimeout(deadline);
       if (code === 0) resolve();
-      else reject(new Error(`The second AhaX process exited with status ${code}.`));
+      else reject(new Error(`The second ahaX process exited with status ${code}.`));
     });
   });
   await waitForWindowVisibility(true);
@@ -181,7 +181,7 @@ async function removeSyntheticGatewayCredential() {
   const expectedId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20)}`;
   assert.equal(storedId, expectedId, 'Only the credential derived from this run\'s temporary data directory may be removed.');
   await new Promise((resolve, reject) => {
-    const cleanup = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:Vela/connection/${storedId}`], {
+    const cleanup = spawn(path.join(process.env.SystemRoot, 'System32', 'cmdkey.exe'), [`/delete:ahaX/connection/${storedId}`], {
       windowsHide: true, stdio: 'ignore', env: environment,
     });
     cleanup.once('error', reject);
@@ -209,15 +209,15 @@ try {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   assert(!page.url().includes('127.0.0.1:1420'), 'Native release must use its packaged UI.');
-  await page.getByRole('button', { name: 'AhaX 主页', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'ahaX 主页', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await page.getByRole('radio', { name: '深色', exact: true }).check();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   await page.reload();
-  await page.getByRole('button', { name: 'AhaX 主页', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'ahaX 主页', exact: true }).waitFor();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
-  assert.equal(await page.evaluate(() => localStorage.getItem('vela:appearance:v1')), 'dark');
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  assert.equal(await page.evaluate(() => localStorage.getItem('ahax:appearance:v1')), 'dark');
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await page.getByRole('radio', { name: '浅色', exact: true }).check();
   await page.getByRole('button', { name: '取消', exact: true }).click();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
@@ -233,7 +233,7 @@ try {
   assert.equal(manualDownloads.autoDownload, false);
   assert.deepEqual(JSON.parse(await readFile(path.join(dataDirectory, 'update-preferences.json'), 'utf8')), { autoDownload: false });
   assert.equal(await readFile(configPath, 'utf8'), original, 'Update preferences must not modify the user configuration.');
-  if (process.env.VELA_SMOKE_PUBLIC_UPDATE === '1') {
+  if (process.env.AHAX_SMOKE_PUBLIC_UPDATE === '1') {
     let publishedStatus = await invoke('check_for_updates');
     const checkDeadline = Date.now() + 40000;
     while (publishedStatus.phase === 'checking' && Date.now() < checkDeadline) {
@@ -245,7 +245,7 @@ try {
     assert(publishedStatus.checkedAt);
   }
   await invoke('save_settings', { input: {
-    providerName: 'Vela', gatewayPort, autoRefresh: false, refreshMinutes: 15,
+    providerName: 'ahaX', gatewayPort, autoRefresh: false, refreshMinutes: 15,
   } });
 
   for (let index = 0; index < channels.length; index++) {
@@ -293,7 +293,7 @@ try {
     channel.route = enabled.find((model) => model.profileId === channel.profileId);
     assert.equal(channel.route.modelId, 'shared-coding-model');
     assert(channel.route.displayName.includes('shared-coding-model'));
-    assert(!channel.route.displayName.includes('vela-'), 'Display labels must not expose opaque generated route names.');
+    assert(!channel.route.displayName.includes('ahax-'), 'Display labels must not expose opaque generated route names.');
     assert.deepEqual(channel.route.supportedReasoningEfforts, channel.efforts);
     assert.equal(channel.route.defaultReasoningEffort, channel.defaultEffort);
   }
@@ -304,7 +304,7 @@ try {
   });
   backupId = backup.id;
   const applied = await readFile(configPath, 'utf8');
-  assert(applied.includes('name = "Vela"'));
+  assert(applied.includes('name = "ahaX"'));
   assert(applied.includes('example = true'));
   assert(!channels.some((channel) => applied.includes(channel.key)));
   const rootSection = applied.split(/^\[/m)[0];
@@ -363,7 +363,7 @@ try {
   assert(repairedWork);
   for (const section of [repaired.split(/^\[/m)[0], repairedWork]) {
     assert.equal(section.match(/^model\s*=\s*"([^"]+)"/m)?.[1], channels[1].route.routeId, 'Repair must preserve the current second-channel route instead of the saved first-channel default.');
-    assert.match(section, /^model_provider\s*=\s*"Vela"/m);
+    assert.match(section, /^model_provider\s*=\s*"ahaX"/m);
     assert.equal(section.match(/^model_catalog_json\s*=\s*(.+)$/m)?.[1].trim(), catalogLiteral);
   }
   const repairedDashboard = await invoke('get_dashboard');
@@ -481,7 +481,7 @@ try {
   const hiddenHealth = await fetchLocal(`http://127.0.0.1:${gatewayPort}/health`, { headers });
   assert.equal(hiddenHealth.status, 200, 'Authenticated gateway health must remain available after close-to-tray.');
   const health = await hiddenHealth.json();
-  assert.equal(health.service, 'Vela');
+  assert.equal(health.service, 'ahaX');
   assert.equal(health.running, true);
   const hiddenUnauthorized = await fetchLocal(`http://127.0.0.1:${gatewayPort}/health`);
   assert.equal(hiddenUnauthorized.status, 401, 'Close-to-tray must not relax local gateway authentication.');
@@ -513,7 +513,7 @@ try {
   }
   assert.equal((await invoke('get_dashboard')).profiles.length, 0);
   assert.deepEqual(errors, []);
-  console.log(`AhaX ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, provider mismatch diagnosis and repair preserving the current route, direct-provider catalog cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
+  console.log(`ahaX ${version} native smoke passed: packaged UI, isolated IPC/configuration, model discovery, original quota units, root/v1 normalization, unique routes for two channels, persisted reasoning choices including max, actual native catalog metadata, per-model reasoning defaults, stale reasoning override cleanup, provider mismatch diagnosis and repair preserving the current route, direct-provider catalog cleanup, unchanged reasoning effort through both upstream routes, real credential helper, authenticated Models/Responses, SSE, Origin/token rejection, continuation isolation, close-to-tray background availability, single-instance window reopening, stale preview rejection, and exact backup restore.`);
   console.log('Only temporary local services, synthetic channel keys, and an isolated CODEX_HOME were used.');
 } finally {
   if (page) {

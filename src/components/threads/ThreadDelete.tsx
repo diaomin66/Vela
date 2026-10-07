@@ -33,7 +33,7 @@ export function ThreadDelete({ threads, onClose, onRemovedFromList, onOpenTrash 
       onRemovedFromList(removed);
     } catch { /* The mutation error stays visible until a fresh preview. */ }
   }
-  return <ThreadDialog title="删除线程" description="核对影响范围后移入 AhaX 回收站" onClose={onClose} locked={pending} wide>
+  return <ThreadDialog title="删除线程" description="核对影响范围后移入 ahaX 回收站" onClose={onClose} locked={pending} wide>
     <div className="thread-dialog-body" tabIndex={0} aria-label="线程删除检查结果">
       {preview.isPending && <div className="thread-loading" role="status"><LoaderCircle className="spin" size={24}/><span>正在检查线程与依赖关系</span></div>}
       {value && <><div className="thread-delete-intro" role="status"><Trash2 size={22}/><div><h3>{remove.data ? `已移入回收站 ${remove.data.deletedCount} 条` : `已选择 ${value.logicalCount} 条线程`}</h3><p>{remove.data ? `${remove.data.items.filter((item) => item.status !== 'deleted').length} 条待处理` : `${value.rolloutCount} 份记录文件${blocked ? ` · ${blocked} 条暂不能删除` : ''}`}</p></div></div><p className="thread-note">{value.warning}</p><div className="thread-delete-list">{value.items.map((item) => {

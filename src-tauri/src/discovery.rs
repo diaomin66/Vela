@@ -641,7 +641,7 @@ pub async fn discover(input: DiscoveryInput, mut cancel: watch::Receiver<bool>) 
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(8))
         .timeout(REQUEST_TIMEOUT)
-        .user_agent("Vela/0.2");
+        .user_agent(concat!("ahaX/", env!("CARGO_PKG_VERSION")));
     if is_loopback(&origin) {
         builder = builder.no_proxy();
     }

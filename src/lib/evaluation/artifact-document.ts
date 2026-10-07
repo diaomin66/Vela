@@ -71,14 +71,14 @@ function playbackRuntime(token: string, initiallyPlaying: boolean) {
   };
   if (!playing) pausedAt = now();
   addEventListener('message', (event) => {
-    if (event.source !== parent || event.data?.type !== 'vela:artifact-playback' || event.data.token !== token || typeof event.data.playing !== 'boolean') return;
+    if (event.source !== parent || event.data?.type !== 'ahax:artifact-playback' || event.data.token !== token || typeof event.data.playing !== 'boolean') return;
     setPlaying(event.data.playing);
   });
   addEventListener('click', (event) => { if (event.target instanceof Element && event.target.closest('a')) event.preventDefault(); }, true);
   addEventListener('submit', (event) => event.preventDefault(), true);
   addEventListener('DOMContentLoaded', () => {
     syncVisuals();
-    parent.postMessage({ type: 'vela:artifact-ready', token }, '*');
+    parent.postMessage({ type: 'ahax:artifact-ready', token }, '*');
   }, { once: true });
 }
 

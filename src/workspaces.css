@@ -8,6 +8,14 @@
 .status-actions .text-button { color: var(--accent-ink); font-weight: var(--weight-medium); }
 .status-error { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-small); margin-top: var(--space-1); color: var(--danger); overflow-wrap: anywhere; }
 .connection-status.compact { margin-bottom: var(--space-4); }
+.status-actions .connection-help-trigger { color: var(--muted); }
+.connection-help-steps { display: grid; gap: var(--space-6); margin-top: var(--space-6); }
+.connection-help-steps h3 { font-size: var(--text-body); font-weight: var(--weight-semibold); margin: 0 0 var(--space-2); }
+.connection-help-steps p { color: var(--muted); font-size: var(--text-small); line-height: var(--leading-body); }
+.connection-help-model { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.connection-help-copy { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface-soft); border-radius: var(--radius-sm); }
+.connection-help-copy code { color: var(--ink); overflow-wrap: anywhere; font-size: var(--text-small); user-select: all; }
+.connection-help-feedback { color: var(--muted); font-size: var(--text-small); }
 .channel-toolbar { margin-bottom: var(--space-5); }
 .channel-toolbar .search-input { max-width: 440px; }
 .channel-toolbar > span { color: var(--muted); font-size: var(--text-caption); margin-left: auto; white-space: nowrap; }
@@ -71,8 +79,8 @@
 .catalog-detail-separator { padding-inline: var(--space-2); color: var(--subtle); }
 .model-reasoning { min-width: 0; }
 .model-field-label { display: none; color: var(--muted); font-size: var(--text-small); margin-bottom: var(--space-1); }
-.model-reasoning .vela-select-trigger { min-height: var(--control-height-sm); height: var(--control-height-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); background: var(--surface-soft); font-size: var(--text-small); border-color: transparent; }
-.model-reasoning .vela-select-trigger:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--selected-border); }
+.model-reasoning .ahax-select-trigger { min-height: var(--control-height-sm); height: var(--control-height-sm); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); background: var(--surface-soft); font-size: var(--text-small); border-color: transparent; }
+.model-reasoning .ahax-select-trigger:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--selected-border); }
 .reasoning-unset { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--muted); padding: var(--space-2); font-size: var(--text-small); border-radius: var(--radius-sm); }
 .reasoning-unset:hover { background: var(--surface-soft); }
 .default-model-button { font-size: var(--text-small); color: var(--muted); min-height: var(--control-height-sm); padding: var(--space-1); border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
@@ -99,7 +107,7 @@
   .channel-toolbar .search-input { max-width: none; }
   .connection-status { flex-wrap: wrap; gap: var(--space-2); }
   .connection-detail { display: block; margin: var(--space-1) 0 0; }
-  .connection-status .status-actions { margin-left: auto; }
+  .connection-status .status-actions { margin-left: auto; flex-basis: 100%; justify-content: flex-end; }
   .connection-status.needs-attention .status-actions { flex-basis: 100%; justify-content: flex-end; }
 }
 @media (max-width: 640px) {

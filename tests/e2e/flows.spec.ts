@@ -29,6 +29,23 @@ async function selectOption(page: Page, trigger: Locator, name: string) {
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 }
 
+test('legacy conversation help explains provider continuity and copies the real model ID', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'ahaX 主页', exact: true })).toBeVisible();
+  await expect(page.locator('.brand-symbol img')).toHaveAttribute('src', '/mark.svg');
+  await page.getByRole('button', { name: '旧会话报错', exact: true }).click();
+  const help = page.getByRole('dialog', { name: '旧会话提示模型不可用', exact: true });
+  await expect(help).toContainText('只切换模型，不会同时切换服务商');
+  await expect(help).toContainText('再新建会话选择渠道模型');
+  await help.getByRole('button', { name: '复制原始模型 ID', exact: true }).click();
+  await expect(help.getByRole('status')).toHaveText('模型 ID 已复制');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('example-code');
+  await page.keyboard.press('Escape');
+  await expect(help).not.toBeVisible();
+  await expect(page.getByRole('button', { name: '旧会话报错', exact: true })).toBeFocused();
+});
+
 async function expandModel(editor: Locator, modelId: string) {
   const button = editor.getByRole('button', { name: `${modelId} 的模型设置`, exact: true });
   if (await button.getAttribute('aria-expanded') !== 'true') await button.click();
@@ -44,7 +61,7 @@ async function checkAccessibility(page: Page, state: string) {
 }
 async function checkWidth(page: Page, state: string) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Page overflow: ${state}`).toBeTruthy();
-  const dialogs = await page.locator('dialog[open], .vela-select-popup:popover-open').evaluateAll((items) => items.map((dialog) => {
+  const dialogs = await page.locator('dialog[open], .ahax-select-popup:popover-open').evaluateAll((items) => items.map((dialog) => {
     const bounds = dialog.getBoundingClientRect();
     return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom, scroll: dialog.scrollWidth, client: dialog.clientWidth, width: window.innerWidth, height: window.innerHeight };
   }));
@@ -230,9 +247,9 @@ test('unsafe remote HTTP is rejected before discovery or saving', async ({ page 
 
 test('settings persist provider, port and refresh choices and require reapplication', async ({ page }) => {
   await openHome(page);
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
-  await expect(page.getByLabel('服务商显示名称')).toHaveValue('Vela');
-  await page.getByLabel('服务商显示名称').fill('Vela Studio');
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
+  await expect(page.getByLabel('服务商显示名称')).toHaveValue('ahaX');
+  await page.getByLabel('服务商显示名称').fill('ahaX Studio');
   await selectOption(page, page.getByRole('combobox', { name: '同步间隔', exact: true }), '30 分钟');
   await page.getByRole('button', { name: '连接与存储', exact: true }).click();
   await page.getByLabel('本地服务端口').fill('19001');
@@ -242,20 +259,20 @@ test('settings persist provider, port and refresh choices and require reapplicat
   await page.getByRole('button', { name: '保存设置', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.connection-status')).toContainText('有更改待同步');
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
-  await expect(page.getByLabel('服务商显示名称')).toHaveValue('Vela Studio');
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
+  await expect(page.getByLabel('服务商显示名称')).toHaveValue('ahaX Studio');
   await page.getByRole('button', { name: '连接与存储', exact: true }).click();
   await expect(page.getByLabel('本地服务端口')).toHaveValue('19001');
   await expect(page.getByLabel('自动同步模型与余额', { exact: false })).not.toBeChecked();
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await nav(page, '模型库').click();
   await page.getByRole('button', { name: '更新 Codex 配置', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Vela Studio');
+  await expect(page.getByRole('dialog')).toContainText('ahaX Studio');
   await page.getByRole('button', { name: '确认并应用', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await nav(page, '渠道').click();
   await expect(page.locator('.connection-status')).toContainText('已同步至 Codex');
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await page.getByRole('button', { name: '连接与存储', exact: true }).click();
   await expect(page.getByLabel('本地服务端口')).toHaveValue('19001');
 });
@@ -414,7 +431,7 @@ test('model editor and expanded custom balance fields satisfy WCAG checks', asyn
 test('settings, verification and configuration preview satisfy WCAG checks', async ({ page }) => {
   test.setTimeout(60000);
   await openHome(page);
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await checkAccessibility(page, '后台设置');
   await page.getByRole('button', { name: '关闭弹窗' }).click();
   await nav(page, '模型库').click();
@@ -436,7 +453,7 @@ test('390px layout fits all pages, model editor, custom fields and settings', as
   await expandModel(page.getByRole('dialog'), 'example-code');
   await page.getByRole('combobox', { name: 'example-code 的推理档位', exact: true }).click();
   await checkWidth(page, '推理档位下拉');
-  expect(await page.locator('.vela-select-popup:popover-open').evaluate((element) => parseFloat(getComputedStyle(element).borderTopLeftRadius))).toBeGreaterThanOrEqual(12);
+  expect(await page.locator('.ahax-select-popup:popover-open').evaluate((element) => parseFloat(getComputedStyle(element).borderTopLeftRadius))).toBeGreaterThanOrEqual(12);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '余额查询设置', exact: true }).click();
   await page.getByRole('combobox', { name: '查询方式', exact: true }).click();
@@ -444,7 +461,7 @@ test('390px layout fits all pages, model editor, custom fields and settings', as
   await page.getByRole('option', { name: '自定义接口', exact: true }).click();
   await checkWidth(page, '自定义余额');
   await page.getByRole('button', { name: '关闭弹窗' }).click();
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await checkWidth(page, '设置');
   await page.getByRole('combobox', { name: '同步间隔', exact: true }).click();
   await checkWidth(page, '同步间隔下拉');

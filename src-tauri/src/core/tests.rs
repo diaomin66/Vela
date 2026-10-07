@@ -25,7 +25,7 @@ fn profile() -> Profile {
     }
 }
 fn render_paths(helper: &Path) -> AppPaths {
-    let directory = std::env::temp_dir().join(format!("vela-render-{}", Uuid::new_v4()));
+    let directory = std::env::temp_dir().join(format!("ahax-render-{}", Uuid::new_v4()));
     AppPaths {
         data: directory.join("data"),
         config: directory.join("config.toml"),
@@ -202,7 +202,7 @@ fn preserves_unrelated_configuration_and_is_idempotent() {
     let output = render_profile(
         original,
         &profile(),
-        &render_paths(Path::new("C:/Program Files/Vela.exe")),
+        &render_paths(Path::new("C:/Program Files/ahaX.exe")),
     )
     .unwrap();
     assert!(output.contains("# personal settings"));
@@ -214,7 +214,7 @@ fn preserves_unrelated_configuration_and_is_idempotent() {
         render_profile(
             &output,
             &profile(),
-            &render_paths(Path::new("C:/Program Files/Vela.exe"))
+            &render_paths(Path::new("C:/Program Files/ahaX.exe"))
         )
         .unwrap()
     );
@@ -445,7 +445,7 @@ fn routing_repair_preview_preserves_the_current_known_route_without_reading_keys
     atomic_write(&paths.config, custom.as_bytes()).unwrap();
     assert!(
         preview_repair(&paths).is_err(),
-        "A pure custom provider/catalog must not be claimed by Vela"
+        "A pure custom provider/catalog must not be claimed by ahaX"
     );
 }
 #[cfg(windows)]

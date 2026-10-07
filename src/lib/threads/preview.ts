@@ -17,7 +17,7 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
     return {
       key: `${sourceId}:${threadId}`, sourceId, threadId, path: `${root}\\${relativePath.replaceAll('/', '\\')}`, relativePath,
       archived: index > 22, title: `${titles[index % titles.length]}${index > 7 ? ` · ${Math.floor(index / 8) + 1}` : ''}`,
-      cwd: index % 3 ? 'D:\\Projects\\Workspace' : 'D:\\Projects\\Atlas', provider: index % 4 ? 'Vela' : 'openai', sourceKind: 'vscode',
+      cwd: index % 3 ? 'D:\\Projects\\Workspace' : 'D:\\Projects\\Atlas', provider: index % 4 ? 'ahaX' : 'openai', sourceKind: 'vscode',
       createdAt: new Date(now() - (index + 4) * 86400000).toISOString(), updatedAt: new Date(now() - (index + 1) * 7200000).toISOString(),
       bytes: 24000 + index * 4700, lineCount: 90 + index * 8, indexPresent: index !== 3 && index !== 6,
       integrity: missing ? 'missing' : index === 6 ? 'partial' : 'valid', snapshot: index === 6 ? 'pending' : 'protected',
@@ -66,7 +66,7 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
       const blocked = scenario === 'delete' && members.some((thread) => thread.threadId.endsWith('000000000005'));
       return { key: members[0].key, threadId: members[0].threadId, sourceId: members[0].sourceId, title: threadTitle(members[0]), rolloutCount: members.length, bytes: members.reduce((sum, thread) => sum + thread.bytes, 0), canDelete: !blocked, reason: blocked ? '这条线程是其他历史记录的基础，需先处理依赖它的后代线程。' : undefined };
     });
-    return structuredClone({ expectedHash: deletionKey(keys), items, logicalCount: items.length, rolloutCount: items.reduce((sum, item) => sum + item.rolloutCount, 0), warning: '整条线程的所有记录文件会移入 AhaX 回收站。保护副本保留，可检查后撤销删除。' });
+    return structuredClone({ expectedHash: deletionKey(keys), items, logicalCount: items.length, rolloutCount: items.reduce((sum, item) => sum + item.rolloutCount, 0), warning: '整条线程的所有记录文件会移入 ahaX 回收站。保护副本保留，可检查后撤销删除。' });
   }
   return {
     async dashboard() { return dashboard(); },
@@ -96,7 +96,7 @@ export function createPreviewThreads(now: () => number = Date.now, empty = false
         const interrupted = scenario === 'interrupted' && item.threadId.endsWith('000000000001');
         removed.set(trashId, group.map((thread) => structuredClone(thread)));
         for (const thread of group) { const index = threads.findIndex((current) => current.key === thread.key); if (index >= 0) threads.splice(index, 1); }
-        const message = interrupted ? '删除未完全确认：本机服务响应中断。加密副本已保留，可在回收站预览撤销。' : '已移入 AhaX 回收站。';
+        const message = interrupted ? '删除未完全确认：本机服务响应中断。加密副本已保留，可在回收站预览撤销。' : '已移入 ahaX 回收站。';
         trash.unshift({ id: trashId, threadId: item.threadId, sourceId: item.sourceId, title: item.title || null, deletedAt: new Date(now()).toISOString(), rolloutCount: item.rolloutCount, bytes: item.bytes, state: interrupted ? 'interrupted' : 'deleted', message: interrupted ? message : undefined });
         results.push({ key: item.key, threadId: item.threadId, status: interrupted ? 'interrupted' : 'deleted', trashId, message });
       }

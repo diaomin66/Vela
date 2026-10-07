@@ -97,7 +97,7 @@ impl ThreadState {
         let _operation = match self.operation.try_lock() {
             Ok(guard) => guard,
             Err(std::sync::TryLockError::WouldBlock) => return self.dashboard(),
-            Err(_) => return Err("线程保护任务不可用，请重新打开 AhaX。".into()),
+            Err(_) => return Err("线程保护任务不可用，请重新打开 ahaX。".into()),
         };
         self.scan_locked()
     }
@@ -261,7 +261,7 @@ impl ThreadState {
         if let Err(error) = self.scan_locked_mode(false, false) {
             result
                 .message
-                .push_str(&format!(" AhaX 清单暂未刷新：{error}"));
+                .push_str(&format!(" ahaX 清单暂未刷新：{error}"));
         }
         Ok(result)
     }

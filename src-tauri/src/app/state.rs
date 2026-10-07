@@ -14,6 +14,7 @@ pub(super) struct AppState {
     cancellations: Mutex<RunRegistry>,
     pub(super) gateway: tokio::sync::Mutex<Option<gateway::GatewayHandle>>,
     pub(super) gateway_error: Mutex<Option<String>>,
+    pub(super) connection_upgrade_error: Mutex<Option<String>>,
 }
 #[derive(Default)]
 struct RunRegistry {
@@ -28,6 +29,13 @@ impl AppState {
             cancellations: Mutex::new(RunRegistry::default()),
             gateway: tokio::sync::Mutex::new(None),
             gateway_error: Mutex::new(None),
+            connection_upgrade_error: Mutex::new(None),
+        }
+    }
+
+    pub(super) fn configuration_changed(&self) {
+        if let Ok(mut error) = self.connection_upgrade_error.lock() {
+            *error = None;
         }
     }
 }

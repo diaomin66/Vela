@@ -32,7 +32,7 @@ pub fn config_text(bytes: &Option<Zeroizing<Vec<u8>>>) -> Result<&str, String> {
 pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or("文件路径无效。")?;
     fs::create_dir_all(parent).map_err(|_| "无法创建目标目录，请检查访问权限。")?;
-    let temporary = parent.join(format!(".vela-{}.tmp", Uuid::new_v4()));
+    let temporary = parent.join(format!(".ahax-{}.tmp", Uuid::new_v4()));
     let mut preserve_temporary = false;
     let result = (|| {
         let mut file = OpenOptions::new()

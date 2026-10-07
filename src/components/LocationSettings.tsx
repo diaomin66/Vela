@@ -9,7 +9,7 @@ import { errorMessage } from '../lib/utils';
 const fields: Array<[keyof LocationPreferences, string, string]> = [
   ['codexHome', 'Codex 数据目录', '官方线程与 config.toml 所在目录'],
   ['sqliteHome', '索引数据库目录', '留空时遵循 Codex 的 sqlite_home 配置'],
-  ['backupsDirectory', '配置备份目录', '保存 AhaX 配置快照'],
+  ['backupsDirectory', '配置备份目录', '保存 ahaX 配置快照'],
   ['evaluationsDirectory', '评测数据目录', '保存评测结果与动图产物'],
   ['exportsDirectory', '导出目录', '留空时跟随评测数据目录'],
   ['threadProtectionDirectory', '线程保护目录', '保存加密线程副本和回收记录'],
@@ -17,7 +17,7 @@ const fields: Array<[keyof LocationPreferences, string, string]> = [
 ];
 const fieldGroups = [
   { id: 'official', title: 'Codex 数据', description: '切换访问位置，不搬迁官方配置、会话或数据库。', fields: fields.slice(0, 2) },
-  { id: 'application', title: 'AhaX 数据', description: '数据会校验后复制，原目录的文件保留。', fields: fields.slice(2, 5) },
+  { id: 'application', title: 'ahaX 数据', description: '数据会校验后复制，原目录的文件保留。', fields: fields.slice(2, 5) },
   { id: 'threads', title: '线程保护', description: '保护副本与检索索引可以分别存放。', fields: fields.slice(5) },
 ];
 const locationKey = ['locations', 'status'] as const;
@@ -74,7 +74,7 @@ function LocationEditor({ status, onBusyChange, onDirtyChange }: { status: Locat
   }
   return <section className="location-settings location-page" aria-label="数据位置">
     <div className="location-fields location-page-scroll" id="location-fields">
-      <p className="editor-hint location-introduction">填写完整目录路径，留空使用默认位置。更改将在 AhaX 完全退出并重新启动后生效。</p>
+      <p className="editor-hint location-introduction">填写完整目录路径，留空使用默认位置。更改将在 ahaX 完全退出并重新启动后生效。</p>
       {status.error && <p className="inline-error" role="alert">{status.error}</p>}
       {fieldGroups.map((group) => <section className="location-group" key={group.id} aria-labelledby={`location-group-${group.id}`}>
         <div className="location-group-heading"><h3 id={`location-group-${group.id}`}>{group.title}</h3><p>{group.description}</p></div>
@@ -91,7 +91,7 @@ function LocationEditor({ status, onBusyChange, onDirtyChange }: { status: Locat
       </section>)}
       <div ref={feedback} className="location-feedback">{preview && <div className="location-preview" role="status"><strong>{preview.errors.length ? '有位置需要调整' : preview.changes.length ? `已检查 ${preview.changes.length} 项位置更改` : '实际位置未发生变化'}</strong>{preview.changes.map((change) => <div key={change.key}><span>{change.label}</span><code>{change.currentPath} → {change.nextPath}</code><small>{change.migration === 'switch' ? '切换到已有目录' : '保留原文件并复制到新目录'} · {change.files} 个文件</small></div>)}{preview.warnings.map((warning) => <p className="location-warning" key={warning}>{warning}</p>)}{preview.errors.map((message) => <p className="inline-error" key={message}>{message}</p>)}</div>}
       {error && <p className="inline-error" role="alert">{error}</p>}</div>
-      {status.requiresRestart && <div className="location-restart" role="status"><p>已保存，下次启动 AhaX 时应用。当前会话继续使用上方「当前」位置。</p><button type="button" className="text-button" disabled={busy} onClick={() => { edit(status.preferences); void inspect(status.preferences); }}>预览撤回更改</button></div>}
+      {status.requiresRestart && <div className="location-restart" role="status"><p>已保存，下次启动 ahaX 时应用。当前会话继续使用上方「当前」位置。</p><button type="button" className="text-button" disabled={busy} onClick={() => { edit(status.preferences); void inspect(status.preferences); }}>预览撤回更改</button></div>}
     </div>
     <footer className="editor-footer"><div className="location-actions"><button type="button" className="button button-quiet" disabled={busy || !changed && !hasCustomPaths} onClick={() => edit(changed ? status.pendingPreferences || status.preferences : { ...DEFAULT_LOCATION_PREFERENCES })}><RotateCcw size={14}/>{changed ? '撤销编辑' : '恢复默认'}</button>{preview?.canSave ? <button type="button" className="button button-primary" disabled={busy} onClick={() => void save()}>{operation === 'save' ? <LoaderCircle className="spin" size={15}/> : <Check size={15}/>}保存位置更改</button> : <button type="button" className="button button-primary" disabled={busy || !changed} onClick={() => void inspect()}>{operation === 'preview' ? <LoaderCircle className="spin" size={15}/> : <FolderCog size={15}/>}检查位置更改</button>}</div></footer>
   </section>;

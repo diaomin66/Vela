@@ -3,14 +3,14 @@ mod commands;
 mod credentials;
 mod dashboard;
 mod desktop;
+mod evaluation;
 mod inspection;
+mod locations;
 mod metadata;
 mod runtime;
 mod state;
-mod updater;
-mod evaluation;
 mod threads;
-mod locations;
+mod updater;
 
 use crate::core::AppPaths;
 pub use credentials::run_credential_mode;
@@ -19,17 +19,57 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let paths = AppPaths::discover().expect("Unable to locate user configuration directories");
+    let paths = match AppPaths::discover() {
+        Ok(paths) => paths,
+        Err(error) => {
+            desktop::show_startup_error(&error);
+            return;
+        }
+    };
     let mut context = tauri::generate_context!();
-    let (artifact_previews, preview_frame_source) = tauri::async_runtime::block_on(crate::artifact_preview::ArtifactPreviewState::start())
-        .unwrap_or_else(|_| (crate::artifact_preview::ArtifactPreviewState::default(), "'none'".into()));
-    let mut csp: std::collections::HashMap<String, tauri::utils::config::CspDirectiveSources> = context.config().app.security.csp.clone()
-        .unwrap_or_else(|| tauri::utils::config::Csp::Policy("default-src 'self'".into())).into();
-    csp.insert("frame-src".into(), tauri::utils::config::CspDirectiveSources::Inline(preview_frame_source));
+    let (artifact_previews, preview_frame_source) =
+        tauri::async_runtime::block_on(crate::artifact_preview::ArtifactPreviewState::start())
+            .unwrap_or_else(|_| {
+                (
+                    crate::artifact_preview::ArtifactPreviewState::default(),
+                    "'none'".into(),
+                )
+            });
+    let mut csp: std::collections::HashMap<String, tauri::utils::config::CspDirectiveSources> =
+        context
+            .config()
+            .app
+            .security
+            .csp
+            .clone()
+            .unwrap_or_else(|| tauri::utils::config::Csp::Policy("default-src 'self'".into()))
+            .into();
+    csp.insert(
+        "frame-src".into(),
+        tauri::utils::config::CspDirectiveSources::Inline(preview_frame_source),
+    );
     context.config_mut().app.security.csp = Some(tauri::utils::config::Csp::DirectiveMap(csp));
-    context.config_mut().identifier = paths
-        .instance_identifier()
-        .expect("Unable to resolve application instance identity");
+    context.config_mut().identifier = match paths.instance_identifier() {
+        Ok(identifier) => identifier,
+        Err(error) => {
+            desktop::show_startup_error(&error);
+            return;
+        }
+    };
+    // Existing installs retain their WebView storage so the one-time theme-key
+    // migration can read the user's preference after the application ID changes.
+    let legacy_webview = match crate::core::legacy::legacy_webview_directory(&paths) {
+        Ok(directory) => directory,
+        Err(error) => {
+            desktop::show_startup_error(&error);
+            return;
+        }
+    };
+    if let Some(directory) = legacy_webview {
+        for window in &mut context.config_mut().app.windows {
+            window.data_directory = Some(directory.clone());
+        }
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if !args.iter().any(|arg| arg == "--background") {
@@ -43,8 +83,18 @@ pub fn run() {
             // Activate pending storage changes only after single-instance
             // arbitration, before any background writer acquires these paths.
             let paths = locations::activate_pending(paths.clone());
+            // Upgrade helpers before schedulers or the UI can acquire the same
+            // nonblocking configuration lock. A failed migration stays visible
+            // while diagnostics and explicit repairs remain available.
+            let gateway_upgrade = crate::catalog::upgrade_legacy_connection(&paths);
+            let direct_upgrade = crate::core::upgrade_legacy_direct_connection(&paths);
+            let connection_upgrade = gateway_upgrade.and(direct_upgrade);
+            let state = AppState::new(paths.clone());
+            if let Ok(mut error) = state.connection_upgrade_error.lock() {
+                *error = connection_upgrade.err();
+            }
             app.manage(updater::UpdateState::new(paths.clone()));
-            app.manage(AppState::new(paths.clone()));
+            app.manage(state);
             app.manage(crate::evaluation::EvaluationState::new(paths.clone()));
             app.manage(crate::threads::ThreadState::new(paths));
             desktop::setup(app)?;
@@ -114,5 +164,5 @@ pub fn run() {
             crate::artifact_preview::release_artifact_preview
         ])
         .run(context)
-        .expect("Unable to launch AhaX");
+        .unwrap_or_else(|error| desktop::show_startup_error(&format!("无法启动桌面程序：{error}")));
 }

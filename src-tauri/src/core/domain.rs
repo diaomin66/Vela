@@ -67,7 +67,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            provider_name: "Vela".into(),
+            provider_name: "ahaX".into(),
             gateway_port: 18761,
             auto_refresh: true,
             refresh_minutes: 15,

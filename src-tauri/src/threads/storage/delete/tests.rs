@@ -301,7 +301,7 @@ fn official_delete_removes_all_rollouts_and_undo_restores_native_history() {
     let (paths, source, mut thread, _) = fixture(sandbox.path());
     let root = Path::new(&source.root);
     fs::write(&paths.config, "[analytics]\nenabled=false\n").unwrap();
-    let marker = "AhaX isolated deletion historical message";
+    let marker = "ahaX isolated deletion historical message";
     let meta = json!({"timestamp":"2026-10-04T09:00:00Z","type":"session_meta","payload":{"id":thread.thread_id,"timestamp":"2026-10-04T09:00:00Z","cwd":root,"originator":"codex_cli_rs","cli_version":"0.160.0","source":"cli","model_provider":"openai"}});
     let event = json!({"timestamp":"2026-10-04T09:00:01Z","type":"event_msg","payload":{"type":"user_message","message":marker,"images":[],"local_images":[],"text_elements":[]}});
     let bytes = format!("{meta}\n{event}\n").into_bytes();

@@ -2,20 +2,28 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, link, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-// Only the test-only Rust example is run. No Vela application or installer is launched.
+// Only the test-only Rust example is run. No ahaX application or installer is launched.
 // Usage: node scripts/updater-smoke.mjs <signed-installer.exe> [probe.exe]
 //        node scripts/updater-smoke.mjs --public [probe.exe]
 const root = process.cwd();
 const publicRelease = process.argv[2] === '--public';
-const installer = path.resolve(process.argv[2] ?? 'release/Vela_0.4.0_x64-setup.exe');
+const appVersion = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')).version;
+const installer = path.resolve(process.argv[2] ?? `release/ahaX_${appVersion}_x64-setup.exe`);
 const executable = path.resolve(process.argv[3] ?? 'src-tauri/target/debug/examples/updater-smoke.exe');
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'updater-smoke-'));
 const probeExecutable = path.join(sandbox, 'updater-smoke.exe');
-await copyFile(executable, probeExecutable);
+// The probe only downloads to memory and never modifies or installs itself.
+// Reuse its read-only executable on the same volume instead of duplicating a
+// potentially large debug binary for every isolated verification run.
+try { await link(executable, probeExecutable); }
+catch (error) {
+  if (!['EXDEV', 'EPERM', 'ENOTSUP'].includes(error.code)) throw error;
+  await copyFile(executable, probeExecutable);
+}
 try {
   await copyFile(path.join(path.dirname(executable), 'WebView2Loader.dll'), path.join(sandbox, 'WebView2Loader.dll'));
 } catch (error) {
@@ -26,14 +34,14 @@ const systemRoot = process.env.SystemRoot ?? 'C:\\Windows';
 const env = {
   ...process.env,
   CODEX_HOME: path.join(sandbox, 'unused-config'),
-  VELA_DATA_DIR: path.join(sandbox, 'unused-data'),
+  AHAX_DATA_DIR: path.join(sandbox, 'unused-data'),
   LOCALAPPDATA: path.join(sandbox, 'local'),
   APPDATA: path.join(sandbox, 'roaming'),
   WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'),
   PATH: [systemRoot, path.join(systemRoot, 'System32'), path.join(systemRoot, 'System32', 'Wbem')].join(';'),
 };
 // Avoid duplicate case variants selecting an inherited real directory on Windows.
-const overriddenVariables = ['PATH', 'CODEX_HOME', 'VELA_DATA_DIR', 'LOCALAPPDATA', 'APPDATA', 'WEBVIEW2_USER_DATA_FOLDER'];
+const overriddenVariables = ['PATH', 'CODEX_HOME', 'AHAX_DATA_DIR', 'LOCALAPPDATA', 'APPDATA', 'WEBVIEW2_USER_DATA_FOLDER'];
 for (const key of Object.keys(env)) {
   const canonical = overriddenVariables.find((name) => name.toLowerCase() === key.toLowerCase());
   if (canonical && key !== canonical) delete env[key];
@@ -63,7 +71,7 @@ async function probe(name, endpoint) {
 
 const results = {};
 if (publicRelease) {
-  results.publicRelease = await probe('public', 'https://github.com/diaomin66/Vela/releases/latest/download/latest.json');
+  results.publicRelease = await probe('public', 'https://github.com/diaomin66/ahaX/releases/latest/download/latest.json');
   assert.equal(results.publicRelease.ok, true, 'Published release must download and verify with the packaged public key.');
 } else {
   const bytes = await readFile(installer);

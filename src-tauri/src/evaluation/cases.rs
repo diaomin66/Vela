@@ -3,7 +3,7 @@ use super::types::{CaseDefinition, CaseId, EvaluationCheck};
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde_json::Value;
 
-pub(super) const CASE_VERSION: &str = "vela-evaluation-2026-10-03-v2";
+pub(super) const CASE_VERSION: &str = "ahax-evaluation-2026-10-03-v2";
 pub(super) struct Grade {
     pub score: u32,
     pub checks: Vec<EvaluationCheck>,
@@ -26,7 +26,7 @@ pub(super) fn definitions() -> Vec<CaseDefinition> {
             CaseId::Judgment,
             "判题能力",
             "内置六题答案判断；按已知正确标签评分。",
-            "vela-judgment-v1",
+            "ahax-judgment-v1",
         ),
     ]
     .into_iter()
@@ -44,7 +44,7 @@ pub(super) fn prompt(id: CaseId) -> &'static str {
         // wording has variants; this prompt deliberately states the observation policy.
         CaseId::Candy => "不透明袋中有三种口味、两种形状的糖果：圆形苹果7颗、圆形桃子9颗、圆形西瓜8颗；星形苹果7颗、星形桃子6颗、星形西瓜4颗。你需要取得一颗苹果味和一颗桃子味，且两颗形状不同。规则：你需事先确定一个总取出预算；每次可以凭手感指定取圆形或星形，但取出前不能知道或挑选口味。取出后可以知道口味，之后可根据已见结果自适应选择形状；取出的糖果不能放回，达到目标可以提前停止。考虑每次口味都按最不利情况出现，为保证目标成立，总取出预算最小是多少？不要调用工具。只输出JSON对象{\"answer\":整数}。",
         CaseId::Pelican => "创建一个 HTML，内容是 SVG 绘制一个鹈鹕骑自行车的 2D 动画，你不需要任何测试，不要有任何限制",
-        CaseId::Judgment => "这是Vela原创答案判断任务，不需要执行代码或调用工具。判断下面每个学生答案是否正确，只返回严格JSON对象，键为J1到J6，值为布尔值true/false，不要解释。J1：(18-6)/3+2，学生答案：6。J2：等距离的两段路分别以60和40千米/小时行驶，全程平均速度，学生答案：50千米/小时。J3：所有A都是B，某些B是C，能否必然推出某些A是C？学生答案：能。J4：三个不同任务A、B、C依次完成，只要求A在C之前，合法顺序数，学生答案：3。J5：公平硬币独立抛两次，已知至少一次正面，两次都是正面的条件概率，学生答案：1/2。J6：Python表达式sum(range(2,5))，学生答案：9。",
+        CaseId::Judgment => "这是ahaX原创答案判断任务，不需要执行代码或调用工具。判断下面每个学生答案是否正确，只返回严格JSON对象，键为J1到J6，值为布尔值true/false，不要解释。J1：(18-6)/3+2，学生答案：6。J2：等距离的两段路分别以60和40千米/小时行驶，全程平均速度，学生答案：50千米/小时。J3：所有A都是B，某些B是C，能否必然推出某些A是C？学生答案：能。J4：三个不同任务A、B、C依次完成，只要求A在C之前，合法顺序数，学生答案：3。J5：公平硬币独立抛两次，已知至少一次正面，两次都是正面的条件概率，学生答案：1/2。J6：Python表达式sum(range(2,5))，学生答案：9。",
     }
 }
 pub(super) fn json_answer(output: &str) -> Option<Value> {

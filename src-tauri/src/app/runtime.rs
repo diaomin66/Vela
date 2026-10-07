@@ -70,6 +70,7 @@ pub(super) async fn apply_gateway(
     };
     match catalog::apply(&state.paths, default_route_id.as_deref(), &expected_hash) {
         Ok(backup) => {
+            state.configuration_changed();
             if let Some(handle) = replacement.take() {
                 if let Some(mut previous) = current.take() {
                     previous.shutdown().await;

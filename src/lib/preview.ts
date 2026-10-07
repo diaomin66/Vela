@@ -24,7 +24,7 @@ export function createPreviewApi(): AppApi {
       { id: 'demo-work', name: '主力渠道', baseUrl: 'https://api.example.com', resolvedBaseUrl: 'https://api.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '编程主力', enabled: true }, { id: 'example-pro', alias: '', enabled: true }, { id: 'example-fast', alias: '', enabled: false }], balanceConfig: { mode: 'auto' }, balance: { status: 'available', remaining: 128.50, unit: '站点计费单位', source: '示例数据', checkedAt: now() }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },
       { id: 'demo-lab', name: '备用渠道', baseUrl: 'https://gateway.example.com/v1', model: 'example-code', models: [{ id: 'example-code', alias: '', enabled: true }, { id: 'example-reasoning', alias: '', enabled: true }], balanceConfig: { mode: 'auto' }, balance: { status: 'unsupported', remaining: null, unit: '额度', source: '示例数据', checkedAt: now(), message: '该服务商不提供可识别的余额接口。' }, keyStored: true, createdAt: now(), updatedAt: now(), lastSyncedAt: now(), revision: crypto.randomUUID() },
     ],
-    settings: { providerName: 'Vela', gatewayPort: 18761, autoRefresh: true, refreshMinutes: 15 },
+    settings: { providerName: 'ahaX', gatewayPort: 18761, autoRefresh: true, refreshMinutes: 15 },
     gateway: { running: true, port: 18761, baseUrl: 'http://127.0.0.1:18761/v1' },
     catalog: [],
     gatewayApplied: true,
@@ -109,7 +109,7 @@ export function createPreviewApi(): AppApi {
       updateCatalog();
       const selected = state.catalog.find((m) => m.routeId === (routeId ?? state.defaultRouteId) && m.enabled) ?? state.catalog.find((m) => m.enabled);
       if (!selected) throw new Error('请先在渠道中启用至少一个模型。');
-      return { ...preview('接入统一模型库', state.gatewayApplied ? 'AhaX 已接入' : '原有配置', state.settings.providerName), changes: [{ label: '服务商显示名称', before: '当前服务商', after: state.settings.providerName }, { label: '默认模型', before: state.catalog.find((m) => m.routeId === state.defaultRouteId)?.displayName ?? '未设置', after: selected.displayName }, { label: '统一模型库', before: '', after: `${state.catalog.filter((m) => m.enabled).length} 个模型 · ${state.profiles.length} 个渠道` }] };
+      return { ...preview('接入统一模型库', state.gatewayApplied ? 'ahaX 已接入' : '原有配置', state.settings.providerName), changes: [{ label: '服务商显示名称', before: '当前服务商', after: state.settings.providerName }, { label: '默认模型', before: state.catalog.find((m) => m.routeId === state.defaultRouteId)?.displayName ?? '未设置', after: selected.displayName }, { label: '统一模型库', before: '', after: `${state.catalog.filter((m) => m.enabled).length} 个模型 · ${state.profiles.length} 个渠道` }] };
     },
     applyGateway: async (routeId, hash) => {
       check(hash); updateCatalog();

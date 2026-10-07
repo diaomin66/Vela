@@ -14,13 +14,13 @@
 - GPT-5.1-Codex Mini 的官方客户端只列 medium/high；不能沿用普通 Codex 的 low/medium/high，更不能因名称含 Mini 就猜测能力。
 - GPT-5.6 Sol/Terra/Luna 与 GPT-6 Sol/Luna 支持 none/low/medium/high/xhigh/max，默认 medium。官网明确 `gpt-5.6` 是 Sol 的别名。
 - GPT-6 Astra 与 GPT-6.1 Sol 不支持 none/minimal，支持 low/medium/high/xhigh/max。6.1 Sol 的 API 默认是 medium；Astra API 页面没有声明默认，原生目录采用该精确型号官方客户端的 low。
-- 5.6 的 Pro 由 `reasoning.mode = "pro"` 控制，不是推理强度，也没有依据创建 `gpt-5.6-pro` 型号。官网推理指南同时说明 6.1 Sol、6 Sol、6 Luna 的默认强度为 medium。Vela 本次管理 effort，没有增加 Pro mode 切换。
+- 5.6 的 Pro 由 `reasoning.mode = "pro"` 控制，不是推理强度，也没有依据创建 `gpt-5.6-pro` 型号。官网推理指南同时说明 6.1 Sol、6 Sol、6 Luna 的默认强度为 medium。ahaX 本次管理 effort，没有增加 Pro mode 切换。
 - 日期快照只登记官网实际列出的完整 ID；不根据名称前缀、日期形状或用户自定义后缀推断。
 - 可用第三方模型不可能由一份 OpenAI 表穷举。渠道重命名、代理特有模型、其他厂商协议，以及下表“未找到完整声明”的型号仍需按该渠道的公开说明手动配置。
 
 ## API 档位与原生客户端兼容性
 
-`max` 是公开 API 的真实 effort；完整目录保留该档位，不自动裁剪。公开 API 当前枚举没有 `ultra`。Codex 0.160 的 Ultra 是客户端编排选项，执行时映射为模型定义的多代理强度或 max 等；直接把 Ultra 当成第三方 API effort 发送会混淆两种含义，因此 Vela 不把它登记为 API 档位。
+`max` 是公开 API 的真实 effort；完整目录保留该档位，不自动裁剪。公开 API 当前枚举没有 `ultra`。Codex 0.160 的 Ultra 是客户端编排选项，执行时映射为模型定义的多代理强度或 max 等；直接把 Ultra 当成第三方 API effort 发送会混淆两种含义，因此 ahaX 不把它登记为 API 档位。
 
 - [Codex 0.137 协议](https://github.com/openai/codex/blob/rust-v0.137.0/codex-rs/protocol/src/openai_models.rs) 的 effort 是固定六项枚举，包含 max 的目录会被旧客户端拒绝。
 - [Codex 0.138 协议](https://github.com/openai/codex/blob/rust-v0.138.0/codex-rs/protocol/src/openai_models.rs) 增加 `Custom(String)`，能够读取并保持 max 等模型定义的 effort。
@@ -28,11 +28,11 @@
 - [Codex 0.160 的努力值转换](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs) 说明 Ultra 的客户端语义。
 - [公开 Responses API 定义](https://developers.openai.com/api/reference/resources/responses/methods/create) 和[官方 Python SDK](https://github.com/openai/openai-python/blob/main/src/openai/types/shared/reasoning.py) 列出 API effort 到 max，并要求按模型核对支持值。
 
-使用含 max 的统一目录至少需要 Codex **0.138**；0.143 以后有明确枚举。Vela 的完整 Ultra 接入以正式版 **0.160.0**（GitHub Release 发布于 2026-10-01）的原生运行时为验收基准；旧版本能读取 Ultra 枚举不代表具有同样的多代理行为。本次没有修改用户全局安装的 CLI。
+使用含 max 的统一目录至少需要 Codex **0.138**；0.143 以后有明确枚举。ahaX 的完整 Ultra 接入以正式版 **0.160.0**（GitHub Release 发布于 2026-10-01）的原生运行时为验收基准；旧版本能读取 Ultra 枚举不代表具有同样的多代理行为。本次没有修改用户全局安装的 CLI。
 
 ## 原生 Ultra
 
-Vela 0.5.0 在原生模型目录中分别声明 `supported_reasoning_levels` 的 Ultra、`multi_agent_version = "v2"` 和 `multi_agent_reasoning_effort`。Codex 在用户选中 Ultra 后启用主动多代理提示，并在构建 Responses 请求时将 Ultra 转换为该模型的实际 API 强度。Vela 网关不自行改写该强度。依据为[官方 0.160 模型目录](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json)、[强度转换](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs)、[客户端请求构建](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/client.rs)和[多代理模式选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/multi_agents.rs)。
+ahaX 0.5.0 在原生模型目录中分别声明 `supported_reasoning_levels` 的 Ultra、`multi_agent_version = "v2"` 和 `multi_agent_reasoning_effort`。Codex 在用户选中 Ultra 后启用主动多代理提示，并在构建 Responses 请求时将 Ultra 转换为该模型的实际 API 强度。ahaX 网关不自行改写该强度。依据为[官方 0.160 模型目录](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json)、[强度转换](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/protocol/src/openai_models/reasoning_effort.rs)、[客户端请求构建](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/client.rs)和[多代理模式选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/multi_agents.rs)。
 
 | 自动开启原生 Ultra 的精确 ID | Ultra 对应的 API effort | 依据 |
 | --- | --- | --- |
@@ -52,24 +52,24 @@ Daybreak Red 的公开 API 档位仍记为未证实。其 `nativeEfforts` 单独
 
 历史恢复将 Ultra 的实际强度和 v2 版本保存为 `nativeReasoning: { multiAgentVersion, ultraEffort }`，防止新版本注册表改变旧快照语义。编辑推理范围时重新计算映射；仅更换默认值保留历史映射。不含 Ultra 的旧目录恢复后仍按旧目录显示。
 
-完整多代理运行时在新建任务时确定；已存在的旧任务可能沿用旧运行时，应用目录后应重新打开 Codex 并新建任务。用户显式设置的 `[agents] enabled = false` 保持有效，Vela 不覆盖该偏好。依据见[官方运行时选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/mod.rs)和[配置优先级](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/config/mod.rs)。
+完整多代理运行时在新建任务时确定；已存在的旧任务可能沿用旧运行时，应用目录后应重新打开 Codex 并新建任务。用户显式设置的 `[agents] enabled = false` 保持有效，ahaX 不覆盖该偏好。依据见[官方运行时选择](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/session/mod.rs)和[配置优先级](https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/core/src/config/mod.rs)。
 
 能力评测直接调用渠道 API，只接受该模型确认的具体 API 档位；不选择档位则完全省略 `reasoning`，交由服务端处理默认值。`ultra` 不会作为 API 参数发送，也不会静默变成普通档位。
 
 ### 验收
 
-`scripts/official-models-smoke.mjs` 使用独立 `CODEX_HOME`、本地凭据助手和本地 Responses 服务驱动官方 Codex 0.160.0 app-server。2026-10-03 验收覆盖 7 个模型、38 次请求，验证原生模型菜单、各档位与默认值、Ultra 实际映射，以及 Ultra 请求中的主动委派提示、`spawn_agent` 与 v2 `followup_task` 工具；普通档位没有主动委派提示。所有请求仅发往本机，不使用真实 Key，不产生远端调用。报告为 `artifacts/official-codex-smoke-1791015517867/report.json`。此脚本验证与 Vela 同构的目录和 provider 配置；Vela 自身目录生成及历史恢复另由 Rust 单元测试覆盖。
+`scripts/official-models-smoke.mjs` 使用独立 `CODEX_HOME`、本地凭据助手和本地 Responses 服务驱动官方 Codex 0.160.0 app-server。2026-10-03 验收覆盖 7 个模型、38 次请求，验证原生模型菜单、各档位与默认值、Ultra 实际映射，以及 Ultra 请求中的主动委派提示、`spawn_agent` 与 v2 `followup_task` 工具；普通档位没有主动委派提示。所有请求仅发往本机，不使用真实 Key，不产生远端调用。报告为 `artifacts/official-codex-smoke-1791015517867/report.json`。此脚本验证与 ahaX 同构的目录和 provider 配置；ahaX 自身目录生成及历史恢复另由 Rust 单元测试覆盖。
 
 ## 两种默认值必须分开
 
 `apiDefault` 是官网或官方 API 定义明确记载的服务端默认值；`null` 表示未证实，不能解释成 none。
 
-原生模型目录必须提供合法默认值，因为部分客户端将缺失默认值显示为 none，即使模型不支持 none。Vela 使用下面的明确优先顺序：
+原生模型目录必须提供合法默认值，因为部分客户端将缺失默认值显示为 none，即使模型不支持 none。ahaX 使用下面的明确优先顺序：
 
 1. 用户显式选择的默认强度。
 2. 官网明确记载、且在该模型可选集合中的 API 默认值。
 3. 同一精确型号的官方 Codex 客户端默认值，并单独标明来源。
-4. Vela 兼容默认：存在 medium 时选 medium，否则选该模型实际支持的最低一档。
+4. ahaX 兼容默认：存在 medium 时选 medium，否则选该模型实际支持的最低一档。
 
 第三和第四项仅为原生界面的初始化选择，不声称是服务端默认值；不改写已发送请求中的 effort，不降级或静默重试。用户关闭档位或模型没有已证实的能力列表时不生成推理选项。
 
@@ -85,7 +85,7 @@ Daybreak Red 的公开 API 档位仍记为未证实。其 `nativeEfforts` 单独
 | `gpt-5-pro`<br>`gpt-5-pro-2025-10-06` | `high` | `high` | `high` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5-pro>) |
 | `gpt-5.1`<br>`gpt-5.1-2025-11-13` | `none`, `low`, `medium`, `high` | `none` | `none` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.1>) |
 | `gpt-5.2`<br>`gpt-5.2-2025-12-11` | `none`, `low`, `medium`, `high`, `xhigh` | `none` | `none` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2>) |
-| `gpt-5.2-pro`<br>`gpt-5.2-pro-2025-12-11` | `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · Vela 兼容默认（非 API 声明） | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2-pro>) |
+| `gpt-5.2-pro`<br>`gpt-5.2-pro-2025-12-11` | `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · ahaX 兼容默认（非 API 声明） | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2-pro>) |
 | `gpt-5.4`<br>`gpt-5.4-2026-03-05` | `none`, `low`, `medium`, `high`, `xhigh` | `none` | `none` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.4>) |
 | `gpt-5.4-mini`<br>`gpt-5.4-mini-2026-03-17` | `none`, `low`, `medium`, `high`, `xhigh` | `none` | `none` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.4-mini>) |
 | `gpt-5.4-nano`<br>`gpt-5.4-nano-2026-03-17` | `none`, `low`, `medium`, `high`, `xhigh` | `none` | `none` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.4-nano>) |
@@ -96,7 +96,7 @@ Daybreak Red 的公开 API 档位仍记为未证实。其 `nativeEfforts` 单独
 | `gpt-5.1-codex` | `low`, `medium`, `high` | 未声明 / 不适用 | `medium` · 该精确型号官方 Codex 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.1-codex>) [依据1](<https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs>) |
 | `gpt-5.1-codex-max` | `low`, `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · 该精确型号官方 Codex 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.1-codex-max>) [依据1](<https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs>) |
 | `gpt-5.1-codex-mini` | `medium`, `high` | 未声明 / 不适用 | `medium` · 该精确型号官方 Codex 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.1-codex-mini>) [依据1](<https://github.com/openai/codex/blob/rust-v0.70.0/codex-rs/core/src/openai_models/model_presets.rs>) |
-| `gpt-5.2-codex` | `low`, `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · Vela 兼容默认（非 API 声明） | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2-codex>) |
+| `gpt-5.2-codex` | `low`, `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · ahaX 兼容默认（非 API 声明） | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.2-codex>) |
 | `gpt-5.3-codex` | `low`, `medium`, `high`, `xhigh` | 未声明 / 不适用 | `medium` · 该精确型号官方 Codex 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.3-codex>) [依据1](<https://github.com/openai/codex/blob/rust-v0.160.0/codex-rs/models-manager/models.json>) |
 | `gpt-5.6-sol`<br>`gpt-5.6` | `none`, `low`, `medium`, `high`, `xhigh`, `max` | `medium` | `medium` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.6-sol>) |
 | `gpt-5.6-terra` | `none`, `low`, `medium`, `high`, `xhigh`, `max` | `medium` | `medium` · 官网 API 默认 | [模型页](<https://developers.openai.com/api/docs/models/gpt-5.6-terra>) |

@@ -173,7 +173,7 @@ fn migrate_records(paths: &AppPaths) -> Result<(), String> {
 pub(super) fn export(paths: &AppPaths, id: &str) -> Result<EvaluationExport, String> {
     let run = read_run(paths, id)?;
     let content = serde_json::to_string_pretty(&run).map_err(|_| "无法导出评测记录。")?;
-    let file_name = format!("AhaX-evaluation-{id}.json");
+    let file_name = format!("ahaX-evaluation-{id}.json");
     let target = paths.exports_directory().join(&file_name);
     core::atomic_write(&target, content.as_bytes())?;
     Ok(EvaluationExport {

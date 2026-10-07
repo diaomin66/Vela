@@ -137,8 +137,8 @@ export function Select({ id, ariaLabel, value, onChange, options, disabled = fal
     }
   }
 
-  return <div className={`vela-select ${className}`}>
-    <button ref={button} id={triggerId} type="button" role="combobox" className="vela-select-trigger"
+  return <div className={`ahax-select ${className}`}>
+    <button ref={button} id={triggerId} type="button" role="combobox" className="ahax-select-trigger"
       aria-label={ariaLabel} aria-expanded={open} aria-controls={listId} aria-haspopup="listbox" disabled={disabled}
       onClick={() => open ? close(true) : show()}
       onKeyDown={(event) => {
@@ -148,25 +148,25 @@ export function Select({ id, ariaLabel, value, onChange, options, disabled = fal
           if (event.key === 'Home') setActive(Math.max(0, options.findIndex((option) => !option.disabled)));
         }
       }}>
-      <span className={!chosen ? 'vela-select-placeholder' : ''} title={chosen?.label}>{chosen?.label ?? placeholder}</span><ChevronDown size={16} className={open ? 'is-open' : ''}/>
+      <span className={!chosen ? 'ahax-select-placeholder' : ''} title={chosen?.label}>{chosen?.label ?? placeholder}</span><ChevronDown size={16} className={open ? 'is-open' : ''}/>
     </button>
-    <div ref={popup} className="vela-select-popup" popover="auto" style={placement}
+    <div ref={popup} className="ahax-select-popup" popover="auto" style={placement}
       onToggle={(event) => { if (event.newState === 'closed') setOpen(false); }} onKeyDown={navigate}>
-      {searchable && <div className="vela-select-search"><Search size={15}/><input ref={search} value={query}
+      {searchable && <div className="ahax-select-search"><Search size={15}/><input ref={search} value={query}
         aria-label={`搜索${ariaLabel ?? '选项'}`} role="combobox" aria-autocomplete="list" aria-expanded="true"
         aria-controls={listId} aria-activedescendant={activeId} placeholder="搜索…" autoComplete="off"
         onChange={(event) => { setQuery(event.target.value); setActive(0); }}/></div>}
-      <div ref={list} id={listId} role="listbox" tabIndex={-1} className="vela-select-options"
+      <div ref={list} id={listId} role="listbox" tabIndex={-1} className="ahax-select-options"
         aria-label={ariaLabel} aria-labelledby={ariaLabel ? undefined : triggerId} aria-activedescendant={activeId}>
         {filtered.map((option, index) => <div id={`${uid}-option-${index}`} key={option.value} role="option"
           aria-selected={option.value === value} aria-disabled={option.disabled || undefined}
-          className={`vela-select-option ${index === active ? 'is-active' : ''}`}
+          className={`ahax-select-option ${index === active ? 'is-active' : ''}`}
           onPointerMove={() => { if (!option.disabled) setActive(index); }}
           onMouseDown={(event) => event.preventDefault()} onClick={() => choose(index)}>
           <span><span>{option.label}</span>{option.description && <small>{option.description}</small>}</span>
           {option.value === value && <Check size={16}/>}
         </div>)}
-        {!filtered.length && <p className="vela-select-empty" role="status">没有匹配选项</p>}
+        {!filtered.length && <p className="ahax-select-empty" role="status">没有匹配选项</p>}
       </div>
     </div>
   </div>;

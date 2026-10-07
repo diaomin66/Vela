@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AhaX",
-  "version": "0.13.0",
-  "identifier": "app.vela.desktop",
+  "productName": "ahaX",
+  "version": "0.14.0",
+  "identifier": "app.ahax.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AhaX",
+        "title": "ahaX",
         "width": 1180,
         "height": 820,
         "minWidth": 900,
@@ -35,6 +35,7 @@
       "nsis"
     ],
     "category": "DeveloperTool",
+    "publisher": "ahaX",
     "shortDescription": "Codex connections, diagnostics and recovery",
     "windows": {
       "webviewInstallMode": {
@@ -66,7 +67,7 @@
     "updater": {
       "requireSignedVersion": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1QTZCRkY2N0U4MjVENTUKUldSVlhZSis5cittMVgxRFlUOHRrS1Y5bW1hbnJhTUFOc09WYTZGUVFyMTFmaDRNREUrMno2TnkK",
-      "endpoints": ["https://github.com/diaomin66/Vela/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/diaomin66/ahaX/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
   }

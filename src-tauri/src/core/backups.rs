@@ -127,7 +127,8 @@ fn validate_restore_target(
     if crate::catalog::restored_store(paths, text, &load_store(paths)?)?.is_some() {
         return Ok(());
     }
-    if !describe(text).0.starts_with("vela_") {
+    let provider = describe(text).0;
+    if !provider.starts_with("ahax_") && !super::legacy::is_direct_provider(&provider) {
         return Ok(());
     }
     let store = load_store(paths)?;

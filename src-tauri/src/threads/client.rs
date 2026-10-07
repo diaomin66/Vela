@@ -97,7 +97,7 @@ impl Client {
             home_verified: false,
             sqlite_root: sqlite_root.unwrap_or(root).to_path_buf(),
         };
-        let initialized = client.call("initialize", json!({"clientInfo":{"name":"ahax_threads","title":"AhaX thread protection","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":false}}))?;
+        let initialized = client.call("initialize", json!({"clientInfo":{"name":"ahax_threads","title":"ahaX thread protection","version":env!("CARGO_PKG_VERSION")},"capabilities":{"experimentalApi":false}}))?;
         if let Some(actual) = initialized.get("codexHome").and_then(Value::as_str) {
             if path_identity(Path::new(actual))? != path_identity(root)? {
                 return Err("线程服务打开了不同的来源目录，已停止重新索引。".into());
@@ -364,7 +364,7 @@ mod tests {
         .unwrap();
         let id = uuid::Uuid::new_v4().to_string();
         let archived_id = uuid::Uuid::new_v4().to_string();
-        let marker = "AhaX isolated historical message";
+        let marker = "ahaX isolated historical message";
         let bytes = fixture(&id, &root, marker);
         let source = active.join(format!("rollout-2026-10-04T09-00-00-{id}.jsonl"));
         std::fs::write(&source, &bytes).unwrap();

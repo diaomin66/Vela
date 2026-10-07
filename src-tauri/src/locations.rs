@@ -4,6 +4,9 @@ mod resolve;
 mod types;
 mod validation;
 
+pub(crate) use migration::copy_brand_data;
+pub(crate) use validation::guard as guard_brand_path;
+
 use crate::core::{self, AppPaths};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
@@ -145,7 +148,7 @@ pub(crate) fn preview(
         warnings.push(error.clone());
     }
     if current.codex_home != next.codex_home || current.sqlite_home != next.sqlite_home {
-        warnings.push("官方目录仅切换读取位置，原始会话和官方数据库留在原处；AhaX 会保留旧线程来源。外部客户端需要使用同一目录配置。".into());
+        warnings.push("官方目录仅切换读取位置，原始会话和官方数据库留在原处；ahaX 会保留旧线程来源。外部客户端需要使用同一目录配置。".into());
     }
     if changes.iter().any(|change| change.migration == "copy") {
         warnings.push(

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { chromium } from '@playwright/test';
 
 const root = process.cwd();
-const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/vela.exe');
+const executable = path.resolve(process.argv[2] ?? 'src-tauri/target/release/ahax.exe');
 await mkdir(path.join(root, 'artifacts'), { recursive: true });
 const sandbox = await mkdtemp(path.join(root, 'artifacts', 'native-smoke-'));
 const codexHome = path.join(sandbox, 'codex');
@@ -45,7 +45,7 @@ const endpoint = `http://127.0.0.1:${server.address().port}/custom/v1`;
 const port = 9337;
 const child = spawn(executable, [], {
   cwd: path.dirname(executable), windowsHide: true, stdio: 'ignore',
-  env: { ...process.env, PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`, CODEX_HOME: codexHome, VELA_DATA_DIR: path.join(sandbox, 'vela-data'), WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --no-proxy-server` },
+  env: { ...process.env, PATH: `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}`, CODEX_HOME: codexHome, AHAX_DATA_DIR: path.join(sandbox, 'ahax-data'), WEBVIEW2_USER_DATA_FOLDER: path.join(sandbox, 'webview'), WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --no-proxy-server` },
 });
 let browser;
 let page;
@@ -71,7 +71,7 @@ try {
   assert.equal(initial.environment.desktopMode, true);
   assert.equal(path.resolve(initial.environment.configPath), configPath);
   assert.equal(initial.profiles.length, 0);
-  await page.screenshot({ path: path.join(root, 'artifacts/screenshots/vela-native.png') });
+  await page.screenshot({ path: path.join(root, 'artifacts/screenshots/ahax-native.png') });
   const local = await invoke('run_diagnostics', { runId: crypto.randomUUID(), includeNetwork: false });
   assert(local.items.length > 0);
   assert.equal(requestCount, 0);
@@ -89,7 +89,7 @@ try {
   const backup = await invoke('apply_profile', { id: profileId, expectedHash: preview.expectedHash });
   originalBackupId = backup.id;
   const applied = await readFile(configPath, 'utf8');
-  assert(applied.includes('vela_'));
+  assert(applied.includes('ahax_'));
   assert(applied.includes('original-model') === false);
   assert(applied.includes('example = true'));
   assert(!applied.includes(syntheticKey));

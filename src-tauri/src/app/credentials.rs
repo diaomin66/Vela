@@ -38,7 +38,7 @@ pub fn run_credential_mode() -> bool {
                     {
                         if response.status().is_success() {
                             if let Ok(body) = response.json::<serde_json::Value>().await {
-                                if body.get("service").and_then(|v| v.as_str()) == Some("Vela")
+                                if matches!(body.get("service").and_then(|v| v.as_str()), Some("ahaX" | "Vela"))
                                     && body.get("running").and_then(|v| v.as_bool()) == Some(true)
                                 {
                                     return Ok(());

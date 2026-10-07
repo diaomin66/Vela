@@ -15,8 +15,8 @@ test.beforeEach(async ({ page, request }) => {
 });
 async function settings(page: Page, search = '') {
   await page.goto('/' + search);
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
-  return page.getByRole('dialog', { name: 'AhaX 设置', exact: true });
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
+  return page.getByRole('dialog', { name: 'ahaX 设置', exact: true });
 }
 async function accessible(page: Page) {
   const report = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
@@ -44,7 +44,7 @@ test('location preview expires on edit and pending changes can be reset to real 
   await expect(dialog.locator('.location-current').first()).toContainText('C:\\Users\\Demo\\.codex');
   await expect(dialog.locator('.location-next').first()).toContainText('E:\\Codex');
   await dialog.getByRole('button', { name: '关闭弹窗', exact: true }).click();
-  await page.getByRole('button', { name: 'AhaX 设置', exact: true }).click();
+  await page.getByRole('button', { name: 'ahaX 设置', exact: true }).click();
   await dialog.getByRole('button', { name: '数据位置', exact: true }).click();
   await expect(field).toHaveValue('E:\\Codex');
   await dialog.getByRole('button', { name: '恢复默认', exact: true }).click();

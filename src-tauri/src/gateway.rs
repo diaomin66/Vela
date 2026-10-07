@@ -88,7 +88,7 @@ impl GatewayHandle {
             if let Some(old) = current
                 .entries
                 .iter()
-                .find(|old| old.route_id == new.route_id)
+                .find(|old| crate::catalog::route_ids_match(&old.route_id, &new.route_id))
             {
                 if old.profile_id != new.profile_id
                     || !same_channel_endpoint(&old.base_url, &new.base_url)
@@ -188,7 +188,7 @@ async fn start_with_secrets(
         .retry(reqwest::retry::never())
         .connect_timeout(Duration::from_secs(20))
         .read_timeout(UPSTREAM_IDLE_TIMEOUT)
-        .user_agent("Vela/0.2")
+        .user_agent(concat!("ahaX/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| "无法初始化安全网络连接。")?;
     let (stop, receiver) = watch::channel(false);
@@ -234,9 +234,14 @@ fn validate_catalog(catalog: &GatewayCatalog) -> Result<(), String> {
             || route.upstream_model.chars().any(char::is_control)
             || route.display_name.is_empty()
             || route.display_name.len() > 2048
-            || !aliases.insert(&route.route_id)
+            || !aliases.insert(crate::catalog::canonical_route_id(&route.route_id))
         {
             return Err("模型目录包含无效或重复的标识。".into());
+        }
+        if crate::catalog::is_internal_route_id(&route.upstream_model) {
+            return Err(
+                "渠道模型误用了本机路由标识，请重新拉取渠道模型并选择原始模型名称。".into(),
+            );
         }
         crate::core::validate_id(&route.profile_id)?;
         let normalized = crate::diagnostics::normalize_endpoint(&route.base_url)?;
@@ -262,7 +267,7 @@ fn authorize(headers: &HeaderMap, state: &GatewayState) -> Result<(), Response<B
         return Err(error(
             StatusCode::FORBIDDEN,
             "browser_origin_blocked",
-            "AhaX 本机路由不接受浏览器跨来源请求。",
+            "ahaX 本机路由不接受浏览器跨来源请求。",
         ));
     }
     let host = headers
@@ -285,7 +290,7 @@ fn authorize(headers: &HeaderMap, state: &GatewayState) -> Result<(), Response<B
         return Err(error(
             StatusCode::UNAUTHORIZED,
             "invalid_local_credential",
-            "本机路由凭据无效，请在 AhaX 中重新应用连接。",
+            "本机路由凭据无效，请在 ahaX 中重新应用连接。",
         ));
     }
     Ok(())
@@ -299,7 +304,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
             "gateway_stopping",
-            "AhaX 本机路由正在退出。",
+            "ahaX 本机路由正在退出。",
         );
     }
     if request.uri().query().is_some() {
@@ -313,7 +318,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
     if request.method() == Method::GET && path == "/health" {
         return json_response(
             StatusCode::OK,
-            json!({"running":true,"service":"Vela","port":state.port}),
+            json!({"running":true,"service":"ahaX","port":state.port}),
         );
     }
     if request.method() == Method::GET && matches!(path, "/v1/models" | "/models") {
@@ -321,7 +326,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
             Ok(catalog) => json_response(
                 StatusCode::OK,
                 json!({"object":"list", "data": catalog.entries.iter().map(|route| {
-                json!({"id":route.route_id,"object":"model","owned_by":"Vela","name":route.display_name,"display_name":route.display_name})
+                json!({"id":route.route_id,"object":"model","owned_by":"ahaX","name":route.display_name,"display_name":route.display_name})
             }).collect::<Vec<_>>()}),
             ),
             Err(_) => error(
@@ -338,7 +343,7 @@ async fn dispatch(State(state): State<GatewayState>, request: Request<Body>) -> 
         return error(
             StatusCode::NOT_FOUND,
             "unsupported_endpoint",
-            "AhaX 仅提供 Models、Responses 和 Responses Compact 接口。",
+            "ahaX 仅提供 Models、Responses 和 Responses Compact 接口。",
         );
     }
     forward(state, request, compact).await
@@ -372,7 +377,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
             return error(
                 StatusCode::BAD_REQUEST,
                 "missing_model",
-                "请选择 AhaX 模型目录中的模型。",
+                "请选择 ahaX 模型目录中的模型。",
             )
         }
     };
@@ -380,16 +385,24 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
         catalog
             .entries
             .iter()
-            .find(|r| r.route_id == route_id)
+            .find(|route| crate::catalog::route_ids_match(&route.route_id, &route_id))
             .cloned()
     });
-    let Some(route) = route else {
+    let Some(mut route) = route else {
         return error(
             StatusCode::NOT_FOUND,
             "unknown_model_route",
             "此渠道模型已移除或尚未启用，请重新选择模型。",
         );
     };
+    if crate::catalog::is_internal_route_id(&route.upstream_model) {
+        return error(
+            StatusCode::CONFLICT,
+            "internal_model_cannot_be_forwarded",
+            "渠道模型误用了本机路由标识，请在 ahaX 中重新拉取并选择渠道的原始模型。",
+        );
+    }
+    route.route_id = route_id;
     if let Some(previous) = payload.get("previous_response_id").filter(|v| !v.is_null()) {
         let Some(previous) = previous.as_str() else {
             return error(
@@ -425,7 +438,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
             return error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "channel_credential_missing",
-                "渠道凭据无法读取，请在 AhaX 中更新该渠道 Key。",
+                "渠道凭据无法读取，请在 ahaX 中更新该渠道 Key。",
             )
         }
     };
@@ -500,9 +513,9 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
     let upstream = tokio::select! {
         result = outgoing.json(&payload).send() => match result {
             Ok(response) => response,
-            Err(_) => return error(StatusCode::BAD_GATEWAY, "upstream_unreachable", "无法连接到当前渠道。请在 AhaX 中检查网络与渠道状态。"),
+            Err(_) => return error(StatusCode::BAD_GATEWAY, "upstream_unreachable", "无法连接到当前渠道。请在 ahaX 中检查网络与渠道状态。"),
         },
-        _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "AhaX 本机路由已停止。"),
+        _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "ahaX 本机路由已停止。"),
     };
     let status = upstream.status();
     if !status.is_success() {
@@ -537,7 +550,7 @@ async fn forward(state: GatewayState, request: Request<Body>, compact: bool) -> 
     loop {
         let next = tokio::select! {
             result = chunks.next() => result,
-            _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "AhaX 本机路由已停止。"),
+            _ = stop.changed() => return error(StatusCode::SERVICE_UNAVAILABLE, "gateway_stopping", "ahaX 本机路由已停止。"),
         };
         match next {
             Some(Ok(chunk)) if bytes.len().saturating_add(chunk.len()) <= MAX_BODY => {
@@ -806,14 +819,14 @@ fn transform_frame(
 }
 
 fn stream_error() -> Bytes {
-    Bytes::from_static(b"event: error\ndata: {\"type\":\"error\",\"code\":\"vela_upstream_stream_interrupted\",\"message\":\"The channel stream was interrupted. Check its status in AhaX.\"}\n\n")
+    Bytes::from_static(b"event: error\ndata: {\"type\":\"error\",\"code\":\"ahax_upstream_stream_interrupted\",\"message\":\"The channel stream was interrupted. Check its status in ahaX.\"}\n\n")
 }
 
 fn upstream_error(status: StatusCode) -> Response<Body> {
     let (code, message) = match status.as_u16() {
         401 => (
             "upstream_authentication_failed",
-            "渠道 Key 认证失败，请在 AhaX 中更新 Key。",
+            "渠道 Key 认证失败，请在 ahaX 中更新 Key。",
         ),
         403 => (
             "upstream_access_denied",
@@ -829,11 +842,11 @@ fn upstream_error(status: StatusCode) -> Response<Body> {
         ),
         300..=399 => (
             "upstream_redirect_blocked",
-            "渠道返回了重定向。为保护 Key，AhaX 不会跟随跳转，请修改渠道地址。",
+            "渠道返回了重定向。为保护 Key，ahaX 不会跟随跳转，请修改渠道地址。",
         ),
         _ => (
             "upstream_request_failed",
-            "渠道未完成请求，请在 AhaX 中诊断该渠道。",
+            "渠道未完成请求，请在 ahaX 中诊断该渠道。",
         ),
     };
     let public_status = if status.is_redirection() {
@@ -847,7 +860,7 @@ fn upstream_error(status: StatusCode) -> Response<Body> {
 fn error(status: StatusCode, code: &str, message: &str) -> Response<Body> {
     json_response(
         status,
-        json!({"error":{"type":"vela_gateway_error","code":code,"message":message}}),
+        json!({"error":{"type":"ahax_gateway_error","code":code,"message":message}}),
     )
 }
 
@@ -889,9 +902,10 @@ impl Continuations {
     }
     fn remember(&mut self, id: &str, route: &GatewayRoute) {
         let now = Instant::now();
+        let identity = crate::catalog::canonical_route_id(&route.route_id);
         let binding = match self.entries.get(id) {
-            Some(old) if old.route.as_deref() != Some(route.route_id.as_str()) => None,
-            _ => Some(route.route_id.clone()),
+            Some(old) if old.route.as_deref() != Some(identity.as_str()) => None,
+            _ => Some(identity),
         };
         self.entries.insert(
             id.into(),
@@ -905,9 +919,12 @@ impl Continuations {
     }
     fn matches(&mut self, id: &str, route: &GatewayRoute) -> bool {
         self.prune();
-        self.entries
-            .get(id)
-            .is_some_and(|entry| entry.route.as_deref() == Some(route.route_id.as_str()))
+        self.entries.get(id).is_some_and(|entry| {
+            entry
+                .route
+                .as_deref()
+                .is_some_and(|identity| crate::catalog::route_ids_match(identity, &route.route_id))
+        })
     }
 }
 

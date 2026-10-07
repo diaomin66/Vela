@@ -77,8 +77,8 @@ pub(super) async fn run_diagnostics(
             category: "configuration".into(),
             title: "统一模型与当前服务商不匹配".into(),
             status: "error".into(),
-            description: "当前配置使用已知的受管路由模型或模型目录，但实际服务商没有连接到对应的本机网关，渠道可能收到无法识别的模型标识。".into(),
-            action: Some("预览修复或重新同步统一模型目录。完成后彻底退出并重新打开 Codex，再新建会话；旧会话可能保留原服务商，单独切换模型不会切换服务商。".into()),
+            description: "当前配置的内部路由模型或受管模型目录与服务商不匹配，第三方会直接收到内部编号并可能返回模型不存在的 404。".into(),
+            action: Some("使用统一模型库时，预览修复后重开 Codex 并新建会话。继续原来的直连会话时，请选原服务商提供的真实模型名；单独切换模型不会改变旧会话的服务商。".into()),
             repairable: true,
         });
     }
@@ -102,7 +102,7 @@ pub(super) async fn run_diagnostics(
             description: if running {
                 "窗口关闭后网关仍在托盘运行，使用独立本地凭据认证。"
             } else {
-                "本地转发服务未运行，请检查端口占用或重新启动 AhaX。"
+                "本地转发服务未运行，请检查端口占用或重新启动 ahaX。"
             }
             .into(),
             action: None,
@@ -178,7 +178,7 @@ pub(super) async fn run_diagnostics(
         .filter(|item| item.status == "warning")
         .count();
     let blocked = report.items.iter().any(|item| item.status == "error" && (
-        matches!(item.id.as_str(), "config-readonly" | "gateway-helper" | "gateway-models-empty" | "credential" | "credential-helper")
+        matches!(item.id.as_str(), "config-readonly" | "gateway-helper" | "gateway-models-empty" | "gateway-upstream-model" | "credential" | "credential-helper")
         || item.id.starts_with("gateway-key-")
     ));
     report.can_repair = !blocked && report.items.iter().any(|item| item.repairable)

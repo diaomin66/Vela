@@ -1,5 +1,5 @@
 //! Test-only updater probe. Downloads and verifies signed artifacts, never installs.
-//! This example is not linked into Vela and does not load channel configuration.
+//! This example is not linked into ahaX and does not load channel configuration.
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{path::PathBuf, time::Duration};
@@ -16,13 +16,13 @@ fn main() {
     assert!(report.is_absolute(), "report must be an absolute path");
     let local = endpoint.scheme() == "http" && endpoint.host_str() == Some("127.0.0.1");
     let published = endpoint.as_str()
-        == "https://github.com/diaomin66/Vela/releases/latest/download/latest.json";
+        == "https://github.com/diaomin66/ahaX/releases/latest/download/latest.json";
     assert!(
         local || published,
-        "only local fixtures or the public Vela release endpoint are supported"
+        "only local fixtures or the public ahaX release endpoint are supported"
     );
     let mut context = tauri::generate_context!();
-    context.config_mut().identifier = "app.vela.updater-smoke".into();
+    context.config_mut().identifier = "app.ahax.updater-smoke".into();
     context.config_mut().app.windows.clear();
     let config = context
         .config_mut()

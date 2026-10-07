@@ -66,14 +66,14 @@ test('HTML preview plays and pauses JavaScript, SMIL and CSS together', async ({
   await expect.poll(async () => Number(await frame.locator('#ticks').textContent())).toBeGreaterThan(3);
   await expect.poll(() => frame.locator('#smil').evaluate((node) => (node as SVGCircleElement).cx.animVal.value)).toBeGreaterThan(20);
   await expect.poll(() => frame.locator('#css').evaluate((node) => getComputedStyle(node).transform)).not.toBe('none');
-  await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ type: 'vela:artifact-playback', token: 'fixture-token', playing: false }, '*'));
+  await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ type: 'ahax:artifact-playback', token: 'fixture-token', playing: false }, '*'));
   await expect.poll(() => frame.locator('svg').evaluate((node) => (node as SVGSVGElement).animationsPaused())).toBe(true);
   await expect.poll(() => frame.locator('#css').evaluate((node) => node.getAnimations().map((value) => ({ state: value.playState, pending: value.pending })))).toEqual([{ state: 'paused', pending: false }]);
   const before = await frame.locator('body').evaluate((body) => ({ frames: body.querySelector('#frames')!.textContent, ticks: body.querySelector('#ticks')!.textContent, smil: (body.querySelector('#smil') as SVGCircleElement).cx.animVal.value, css: getComputedStyle(body.querySelector('#css')!).transform }));
   await page.waitForTimeout(150);
   const after = await frame.locator('body').evaluate((body) => ({ frames: body.querySelector('#frames')!.textContent, ticks: body.querySelector('#ticks')!.textContent, smil: (body.querySelector('#smil') as SVGCircleElement).cx.animVal.value, css: getComputedStyle(body.querySelector('#css')!).transform }));
   expect(after).toEqual(before);
-  await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ type: 'vela:artifact-playback', token: 'fixture-token', playing: true }, '*'));
+  await page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ type: 'ahax:artifact-playback', token: 'fixture-token', playing: true }, '*'));
   await expect.poll(async () => Number(await frame.locator('#frames').textContent())).toBeGreaterThan(Number(before.frames) + 3);
 });
 

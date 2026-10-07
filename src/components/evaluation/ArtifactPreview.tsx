@@ -59,17 +59,17 @@ export const ArtifactPreview = memo(function ArtifactPreview({ html, title, play
 
   useEffect(() => {
     const listen = (event: MessageEvent) => {
-      if (event.source !== frame.current?.contentWindow || event.data?.type !== 'vela:artifact-ready' || event.data.token !== token) return;
+      if (event.source !== frame.current?.contentWindow || event.data?.type !== 'ahax:artifact-ready' || event.data.token !== token) return;
       setReady(true);
       callbacks.current.onReady?.();
-      frame.current?.contentWindow?.postMessage({ type: 'vela:artifact-playback', token, playing: playback.current && visible }, '*');
+      frame.current?.contentWindow?.postMessage({ type: 'ahax:artifact-playback', token, playing: playback.current && visible }, '*');
     };
     window.addEventListener('message', listen);
     return () => window.removeEventListener('message', listen);
   }, [token, visible]);
 
   useEffect(() => {
-    frame.current?.contentWindow?.postMessage({ type: 'vela:artifact-playback', token, playing: playing && visible }, '*');
+    frame.current?.contentWindow?.postMessage({ type: 'ahax:artifact-playback', token, playing: playing && visible }, '*');
   }, [playing, ready, token, visible]);
 
   return <div ref={container} className={`artifact-preview ${className}`} data-ready={ready || undefined} data-interactive={interactive || undefined} aria-busy={!ready && !error}>

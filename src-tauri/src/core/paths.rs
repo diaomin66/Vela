@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-const DEFAULT_INSTANCE_IDENTIFIER: &str = "app.vela.desktop";
+const DEFAULT_INSTANCE_IDENTIFIER: &str = "app.ahax.desktop";
 
 #[derive(Clone)]
 pub struct AppPaths {
@@ -41,13 +41,9 @@ impl AppPaths {
         if !codex_home.is_absolute() {
             return Err("CODEX_HOME 必须为绝对路径。".into());
         }
-        let data = std::env::var_os("VELA_DATA_DIR")
-            .or_else(|| std::env::var_os("CODEXTOOL_DATA_DIR"))
-            .filter(|value| !value.is_empty())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| base.data_local_dir().join("Vela").join("data"));
+        let data = super::legacy::data_directory(base.data_local_dir())?;
         if !data.is_absolute() {
-            return Err("VELA_DATA_DIR 必须为绝对路径。".into());
+            return Err("AHAX_DATA_DIR 必须为绝对路径。".into());
         }
         let config = codex_home.join("config.toml");
         Ok(Self {
@@ -124,7 +120,7 @@ impl AppPaths {
     /// while allowing explicitly isolated data directories to run independently.
     pub fn instance_identifier(&self) -> Result<String, String> {
         let base = directories::BaseDirs::new().ok_or("无法确定当前用户目录。")?;
-        let default_data = base.data_local_dir().join("Vela").join("data");
+        let default_data = base.data_local_dir().join("ahaX").join("data");
         instance_identifier_for(&self.data, &default_data)
     }
 
@@ -192,7 +188,7 @@ mod instance_tests {
     #[test]
     fn default_data_directory_retains_installed_instance_identifier() {
         let directory = tempfile::tempdir().unwrap();
-        let default_data = directory.path().join("Vela").join("data");
+        let default_data = directory.path().join("ahaX").join("data");
         assert_eq!(
             instance_identifier_for(&default_data, &default_data).unwrap(),
             DEFAULT_INSTANCE_IDENTIFIER
@@ -215,7 +211,7 @@ mod instance_tests {
             identifier,
             instance_identifier_for(&first, &default_data).unwrap()
         );
-        assert!(identifier.starts_with("app.vela.desktop.scope-"));
+        assert!(identifier.starts_with("app.ahax.desktop.scope-"));
         assert!(!identifier.contains(&directory.path().to_string_lossy().to_string()));
     }
 
@@ -242,19 +238,19 @@ mod instance_tests {
     #[cfg(windows)]
     #[test]
     fn windows_path_variants_share_the_same_instance_identifier() {
-        let default_data = Path::new(r"C:\Users\Example\AppData\Local\Vela\data");
-        let default_variant = Path::new("c:/users/EXAMPLE/appdata/local/vela/./data/");
+        let default_data = Path::new(r"C:\Users\Example\AppData\Local\ahaX\data");
+        let default_variant = Path::new("c:/users/EXAMPLE/appdata/local/ahax/./data/");
         assert_eq!(
             instance_identifier_for(default_variant, default_data).unwrap(),
             DEFAULT_INSTANCE_IDENTIFIER
         );
-        let data = Path::new(r"D:\Vela Smoke\scope\data");
+        let data = Path::new(r"D:\ahaX Smoke\scope\data");
         let expected = instance_identifier_for(data, default_data).unwrap();
         for variant in [
-            "d:/VELA SMOKE/SCOPE/data/",
-            r"D:\Vela Smoke\scope\data\",
-            r"D:\Vela Smoke\scope\unused\..\data",
-            r"\\?\D:\Vela Smoke\scope\data",
+            "d:/AHAX SMOKE/SCOPE/data/",
+            r"D:\ahaX Smoke\scope\data\",
+            r"D:\ahaX Smoke\scope\unused\..\data",
+            r"\\?\D:\ahaX Smoke\scope\data",
         ] {
             assert_eq!(
                 instance_identifier_for(Path::new(variant), default_data).unwrap(),
@@ -267,9 +263,9 @@ mod instance_tests {
     #[cfg(windows)]
     #[test]
     fn windows_unc_prefix_and_separators_share_the_same_instance_identifier() {
-        let default_data = Path::new(r"C:\Users\Example\AppData\Local\Vela\data");
-        let data = Path::new(r"\\server\share\Vela\data");
-        let variant = Path::new(r"\\?\UNC\SERVER\SHARE\vela\data\");
+        let default_data = Path::new(r"C:\Users\Example\AppData\Local\ahaX\data");
+        let data = Path::new(r"\\server\share\ahaX\data");
+        let variant = Path::new(r"\\?\UNC\SERVER\SHARE\ahax\data\");
         assert_eq!(
             instance_identifier_for(data, default_data).unwrap(),
             instance_identifier_for(variant, default_data).unwrap()

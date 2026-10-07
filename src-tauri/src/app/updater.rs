@@ -1,5 +1,5 @@
 //! Signed application updates. Background work never interrupts the gateway;
-//! only the explicit install command launches an installer and exits Vela.
+//! only the explicit install command launches an installer and exits ahaX.
 mod state;
 
 use self::state::{
@@ -43,7 +43,7 @@ impl UpdateState {
     fn lock(&self) -> Result<MutexGuard<'_, RuntimeSession>, String> {
         self.session
             .lock()
-            .map_err(|_| "更新状态暂时不可用，请重新打开 AhaX。".into())
+            .map_err(|_| "更新状态暂时不可用，请重新打开 ahaX。".into())
     }
 }
 
@@ -229,7 +229,7 @@ pub(super) fn install_update(app: AppHandle) -> Result<UpdateStatus, String> {
             if let Ok(mut session) = state.lock() {
                 session
                     .model
-                    .fail("无法启动安装程序，请关闭其他 AhaX 窗口后重试。".into());
+                    .fail("无法启动安装程序，请关闭其他 ahaX 窗口后重试。".into());
             };
         }
     });

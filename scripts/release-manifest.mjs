@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export function releaseManifest({ version, tag, repository, signature, filename, productName = 'AhaX', notes = '', pubDate = new Date().toISOString() }) {
+export function releaseManifest({ version, tag, repository, signature, filename, productName = 'ahaX', notes = '', pubDate = new Date().toISOString() }) {
   if (!/^\d+\.\d+\.\d+$/.test(version) || tag !== `v${version}`) throw new Error('A stable version and its matching v-prefixed tag are required.');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Repository must be owner/name.');
   if (!/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(productName) || filename !== `${productName}_${version}_x64-setup.exe`) throw new Error('Unexpected Windows installer name.');
@@ -24,7 +24,7 @@ export function releaseVersion(packageJson, tauriJson, cargoText, tag) {
   return version;
 }
 
-export async function prepareRelease({ root = process.cwd(), bundleDir = 'src-tauri/target/release/bundle/nsis', outputDir = 'release', repository = 'diaomin66/Vela', tag, notesFile }) {
+export async function prepareRelease({ root = process.cwd(), bundleDir = 'src-tauri/target/release/bundle/nsis', outputDir = 'release', repository = 'diaomin66/ahaX', tag, notesFile }) {
   const [packageText, tauriText, cargoText] = await Promise.all(['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml'].map((file) => readFile(path.join(root, file), 'utf8')));
   const version = releaseVersion(JSON.parse(packageText), JSON.parse(tauriText), cargoText, tag);
   const productName = JSON.parse(tauriText).productName;

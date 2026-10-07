@@ -75,6 +75,20 @@ pub(crate) fn inspect_local_system(
     gateway_configured: bool,
 ) -> Vec<DiagnosticItem> {
     let mut items = Vec::new();
+    if store.profiles.iter().any(|profile| {
+        profile.models.iter().any(|model| {
+            model.enabled && catalog::is_internal_route_id(&model.id)
+        })
+    }) {
+        items.push(item(
+            "gateway-upstream-model",
+            "configuration",
+            "渠道误用了内部模型编号",
+            "error",
+            "已启用的渠道模型包含内部路由编号，无法作为第三方 API 的真实模型名称。",
+            Some("重新拉取渠道模型，或在模型设置中填写真实模型 ID，再同步模型目录。"),
+        ));
+    }
     if fs::metadata(&paths.config).is_ok_and(|metadata| metadata.permissions().readonly()) {
         items.push(item(
             "config-readonly",
@@ -82,7 +96,7 @@ pub(crate) fn inspect_local_system(
             "配置文件为只读",
             "error",
             "配置文件启用了只读属性，应用配置或恢复备份可能失败。",
-            Some("在文件属性中取消只读后重新检查。AhaX 不会自动修改文件权限。"),
+            Some("在文件属性中取消只读后重新检查。ahaX 不会自动修改文件权限。"),
         ));
     }
     if gateway_configured {
@@ -93,7 +107,7 @@ pub(crate) fn inspect_local_system(
                 "网关凭据读取程序缺失",
                 "error",
                 "模型目录使用的凭据读取程序已不存在，客户端无法取得本地网关凭据。",
-                Some("重新安装完整的 AhaX 安装包，再预览修复。"),
+                Some("重新安装完整的 ahaX 安装包，再预览修复。"),
             ));
         }
         let expected = catalog::model_json(store);
@@ -126,7 +140,7 @@ pub(crate) fn inspect_local_system(
             if matching {
                 "已核对本机模型目录内容，与保存的渠道和模型一致。"
             } else {
-                "AhaX 管理的模型目录缺失、损坏或与保存记录不同，客户端可能无法列出模型。"
+                "ahaX 管理的模型目录缺失、损坏或与保存记录不同，客户端可能无法列出模型。"
             },
             (!matching).then_some("预览修复会根据已保存的渠道重新生成模型目录，并备份当前配置。"),
         );
@@ -176,6 +190,21 @@ mod tests {
             locations: None,
         };
         (directory, paths, core::Store::default())
+    }
+
+    #[test]
+    fn stored_internal_models_produce_an_actionable_local_error() {
+        let (_directory, paths, _) = fixture();
+        for prefix in ["vela-", "ahax-"] {
+            let store = serde_json::from_value(serde_json::json!({
+                "profiles": [{"id":"11111111-1111-4111-8111-111111111111", "name":"fixture", "baseUrl":"https://example.test/v1", "model":"upstream", "keyStored":false, "createdAt":"now", "updatedAt":"now", "models":[{"id":format!("{prefix}{}", "a".repeat(64)), "enabled":true}]}]
+            })).unwrap();
+            let items = inspect_local_system(&paths, &store, false);
+            let invalid = items.iter().find(|item| item.id == "gateway-upstream-model").unwrap();
+            assert_eq!(invalid.status, "error");
+            assert!(!invalid.repairable);
+            assert!(invalid.action.as_deref().unwrap().contains("真实模型"));
+        }
     }
 
     #[test]
